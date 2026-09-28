@@ -1,0 +1,71 @@
+%!TEX root = main.tex
+\documentclass[12pt, a4paper]{memoir}
+\usepackage[french,english]{babel}
+
+% Page layout (Fixed header height & memoir compatibility)
+% \usepackage[vscale=0.76, includehead, headheight=18pt, headsep=10pt]{geometry} %%%% for print
+\usepackage[vscale=0.76, includehead, headheight=18pt, headsep=10pt, hmarginratio=1:1]{geometry}
+
+% Packages
+\usepackage{lipsum}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{mathptmx} % font = times
+\usepackage{helvet}   % font sf = helvetica
+\usepackage{relsize}
+\usepackage[T1]{fontenc}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning}
+\usetikzlibrary{calc,arrows.meta,patterns,decorations.pathreplacing}
+\usepackage{booktabs}
+\usepackage{textcomp}
+\usepackage{multirow}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
+\usepackage{url}
+\usepackage{footnote}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{cleveref}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{float}
+\usepackage{xcolor}
+
+% Paragraph spacing (memoir-native replacement for parskip[parfill])
+\abnormalparskip{\medskipamount}
+\nonzeroparskip
+\setlength{\parindent}{0pt}
+
+%%%%% Theorem setting
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{proposition}[theorem]{Proposition}
+
+%%%%%% Definition setting
+\theoremstyle{definition} 
+\newtheorem{definition}{Definition}[section]
+
+% Tikz configuration
+\usetikzlibrary{arrows,shapes,positioning,shadows,trees}
+\makesavenoteenv{tabular}
+\makesavenoteenv{table}
+
+\def\checkmark{\tikz\fill[scale=0.4](0,.35) -- (.25,0) -- (1,.7) -- (.25,.15) -- cycle;}
+
+% Header and Chapter styling
+\headstyles{komalike}
+\nouppercaseheads
+\chapterstyle{dash}
+\makeevenhead{headings}{\sffamily\thepage}{}{\sffamily\leftmark} 
+\makeoddhead{headings}{\sffamily\rightmark}{}{\sffamily\thepage}
+\makeoddfoot{plain}{}{}{} 
+\makeheadrule{headings}{\textwidth}{\normalrulethickness}
+
+\renewcommand{\chaptername}{\relax}
+\renewcommand{\chaptitlefont}{\sffamily\bfseries\LARGE}
+\renewcommand{\chapnumfont}{\sffamily\bfseries\LARGE}
+\setsecnumdepth{subsection}
+
+\pagestyle{plain}
