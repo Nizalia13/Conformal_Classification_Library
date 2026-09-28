@@ -9,7 +9,7 @@ conformal_envelopes.egg-info/
 # Project configuration 
 pyproject.toml
 
-/examples/
+# /examples/
 
 football_all_positions_example.ipynb
 

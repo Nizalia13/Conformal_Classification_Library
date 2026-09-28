@@ -1,0 +1,10 @@
+predictor,population,n_test,accuracy
+logreg,All,1815,0.5410468319559228
+logreg,GK,203,1.0
+logreg,Outfield,1612,0.4832506203473945
+forest,All,1815,0.5415977961432507
+forest,GK,203,1.0
+forest,Outfield,1612,0.4838709677419355
+boost,All,1815,0.509090909090909
+boost,GK,203,1.0
+boost,Outfield,1612,0.4472704714640198
