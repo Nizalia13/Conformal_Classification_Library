@@ -1,0 +1,143 @@
+{
+  "parquet": {
+    "rows": 18443,
+    "columns": 2037,
+    "row_groups": 1,
+    "shape": [
+      18443,
+      2036
+    ],
+    "index_unique": true,
+    "index_name": "accession",
+    "all_nan_columns": 0,
+    "null_fraction": 0.6269629188301405,
+    "minimum": 1.000000099473604e-07,
+    "maximum": 0.9999999999986867,
+    "ids_missing_metadata": 0
+  },
+  "gram_exports": {
+    "host_consumed_rows": 18474,
+    "gram_folder_rows": 18474,
+    "common_ids": 18474,
+    "different_predictions": 1407,
+    "host_only_ids": 0,
+    "gram_only_ids": 0,
+    "host_combinations": {
+      "(True, False)": 10744,
+      "(False, True)": 7730
+    },
+    "gram_combinations": {
+      "(True, False)": 10241,
+      "(False, True)": 6826,
+      "(True, True)": 1407
+    }
+  },
+  "metadata_columns": [
+    "proteinID",
+    "pc",
+    "accession",
+    "vc",
+    "host",
+    "host_type",
+    "phrogs_annotation",
+    "phrogs_category",
+    "split"
+  ],
+  "metadata": {
+    "rows": 1853074,
+    "unique_proteins": 1853074,
+    "unique_phages": 18474,
+    "missing_ids": 0,
+    "conflicting_phages": 0,
+    "accession_from_id_disagreements": 0,
+    "phages_by_split": {
+      "0": 4433,
+      "2": 3646,
+      "4": 3634,
+      "3": 3588,
+      "1": 3173
+    },
+    "phages_missing_score_table": 31
+  },
+  "gram_score_columns": [
+    "proteinID",
+    "host_type_lysin",
+    "host_type_endolysin",
+    "host_type_val",
+    "host_type_capsid",
+    "host_type_baseplate",
+    "host_type_tail_appendage",
+    "host_type_tail_sheath",
+    "host_type_portal",
+    "host_type_head-tail_joining",
+    "host_type_integration",
+    "host_type_nuclease",
+    "host_type_DNA_polymerase",
+    "host_type_terminase",
+    "host_type_annealing",
+    "host_type_helicase",
+    "host_type_primase",
+    "host_type_replication_initiation",
+    "host_type_transcriptional_regulator",
+    "host_type_transcriptional_activator",
+    "host_type_transcriptional_repressor",
+    "host_type_packaging_assembly",
+    "host_type_adsorption-related",
+    "host_type_cell_wall_depolymerase",
+    "host_type_RNA-associated",
+    "host_type_nucleotide_metabolism",
+    "host_type_ejection",
+    "host_type_phosphorylation",
+    "host_type_transferase",
+    "host_type_reductase",
+    "host_type_anti-restriction",
+    "host_type_sir2",
+    "host_type_toxin",
+    "host_type_super_infection",
+    "host_type_lysis",
+    "host_type_lysis_inhibitor",
+    "host_type_holin",
+    "host_type_spanin",
+    "host_type_tail",
+    "host_type_pvp",
+    "host_type_DNA-associated"
+  ],
+  "gram_scores": {
+    "rows": 1853074,
+    "columns": 41,
+    "ids_in_metadata": true
+  },
+  "fold_files": {
+    "union_count": 81,
+    "folds": {
+      "0": {
+        "count": 81,
+        "missing_from_union": []
+      },
+      "1": {
+        "count": 80,
+        "missing_from_union": [
+          "all_preds_gramneg_DNA-associated_1.pkl"
+        ]
+      },
+      "2": {
+        "count": 80,
+        "missing_from_union": [
+          "all_preds_gramneg_DNA-associated_1.pkl"
+        ]
+      },
+      "3": {
+        "count": 80,
+        "missing_from_union": [
+          "all_preds_gramneg_DNA-associated_1.pkl"
+        ]
+      },
+      "4": {
+        "count": 80,
+        "missing_from_union": [
+          "all_preds_gramneg_DNA-associated_1.pkl"
+        ]
+      }
+    }
+  }
+}

@@ -86,6 +86,7 @@ score_direction, and force_nonempty.
 
 ## Visualisation
 
+
 There are three plotting options:
 
 - `model.plot(...)`: fits a separate two-dimensional envelope using

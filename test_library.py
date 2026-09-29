@@ -274,3 +274,46 @@ def test_strip_zero_limits_calibrate_consistently():
     assert np.isfinite(normalized).all()
 
     np.testing.assert_array_equal(normalized <= 1.0, inside,)
+@pytest.mark.parametrize('dimension', [2, 4])
+def test_radial_coordinatewise_monotonicity_and_calibration(dimension):
+    from conformal_envelopes.envelopes.radial import build_radial, radial_tau
+    from conformal_envelopes.calibration import conformal_quantile
+    rng = np.random.default_rng(71)
+    s1 = rng.uniform(.02, 1, (140, dimension))
+    s2 = rng.uniform(.02, 1, (120, dimension))
+    envelope = build_radial(s1, s2, .1, n_directions=40, rng=rng)
+    assert envelope['shape_rule'] == 'sampled_downward_closure'
+    unit = dict(envelope, t_hat=1.)
+    expected = conformal_quantile(radial_tau(s2, unit), .1)
+    assert envelope['t_hat'] == pytest.approx(expected)
+    points = rng.uniform(0, 2, (400, dimension))
+    # Move each point inside, then independently decrease coordinates.
+    points *= (.9 / np.maximum(radial_tau(points, envelope), 1))[:, None]
+    assert (radial_tau(points, envelope) <= 1).all()
+    for j in range(dimension):
+        improved = points.copy()
+        improved[:, j] *= rng.uniform(0, 1, len(points))
+        assert (radial_tau(improved, envelope) <= radial_tau(points, envelope) + 1e-12).all()
+    improved = points * rng.random(points.shape)
+    assert (radial_tau(improved, envelope) <= 1).all()
+    np.testing.assert_allclose(radial_tau(.5*points, envelope), .5*radial_tau(points, envelope))
+    assert radial_tau(np.zeros((1, dimension)), envelope)[0] == 0
+    # Monotonicity also applies with a fixed missingness pattern.
+    points[:, 0] = np.nan
+    improved[:, 0] = np.nan
+    assert (radial_tau(improved, envelope) <= radial_tau(points, envelope) + 1e-12).all()
+
+
+def test_radial_downward_boxes_and_legacy_loading():
+    from conformal_envelopes.envelopes.radial import radial_tau
+    envelope = {'U': np.eye(2), 'q_tilde': np.ones(2), 't_hat': 1.,
+                'shape_rule': 'sampled_downward_closure',
+                'boundary_points': np.array([[.2, .8], [.8, .2]])}
+    points = np.array([[.1, .7], [.7, .1], [.5, .5], [0, 0]])
+    np.testing.assert_allclose(radial_tau(points, envelope), [.875, .875, 2.5, 0], atol=1e-10)
+    assert np.isinf(radial_tau(points[:1], dict(envelope, t_hat=0.)))[0]
+    assert radial_tau(points[-1:], dict(envelope, t_hat=0.))[0] == 0
+    assert (radial_tau(points, dict(envelope, t_hat=np.inf)) == 0).all()
+    # No shape marker means an old serialized model: preserve its old rule.
+    legacy = {'U': np.eye(2), 'q_tilde': np.ones(2), 't_hat': 1., 'smoothing': 4.}
+    np.testing.assert_allclose(radial_tau(points, legacy), np.linalg.norm(points, axis=1), atol=1e-10)

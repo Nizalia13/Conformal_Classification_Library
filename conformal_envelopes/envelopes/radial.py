@@ -94,7 +94,9 @@ def _magnitudes_and_directions(S):
 def build_radial(S1, S2, alpha: float, *, n_directions: int = 250, neighbor_fraction: float = 0.2,
                  rng, smoothing: float = 8.0, angle_deg: float = 30.0,) -> dict:
     """
-       Build the NaN-aware radial envelope from the cleaned notebook.
+       Learn radial boundary samples, take their coordinatewise downward closure,
+       then calibrate that new score on S2. The closure is a union of boxes from
+       the origin to sampled boundary points, not the continuous old boundary.
     """
 
     S1 = _checked_scores(S1, "Shape discovery (S1)")
@@ -159,6 +161,14 @@ def build_radial(S1, S2, alpha: float, *, n_directions: int = 250, neighbor_frac
                      "angle_deg": float(angle_deg), "n_directions": int(n_directions),
                      "neighbor_fraction": float(neighbor_fraction),}
     
+    # Freeze the geometry using S1 only. Axis directions retain axis extent;
+    # the remaining anchors sample the original smoothed radial boundary.
+    anchor_directions = np.vstack([U, np.eye(K)])
+    anchor_radii = radial_boundary_radius(anchor_directions, U, q_tilde, smoothing)
+    unit_envelope["boundary_points"] = anchor_directions * anchor_radii[:, None]
+    unit_envelope["shape_rule"] = "sampled_downward_closure"
+
+    # Calibrate the NEW monotone statistic, never reuse the old radial threshold.
     raw_tau = radial_tau(S2, unit_envelope)
     unit_envelope["t_hat"] = conformal_quantile(raw_tau, alpha)
     return unit_envelope
@@ -185,6 +195,23 @@ def radial_tau(scores, envelope: dict) -> np.ndarray:
     if np.isposinf(t_hat):
         return tau
 
+    if envelope.get("shape_rule") == "sampled_downward_closure":
+        # For each boundary point b, max_j x_j/b_j is the box scaling
+        # required to contain x. Min over boxes gives the union's gauge.
+        # Every term is nondecreasing in every observed x_j, so improving
+        # one coordinate cannot turn acceptance into rejection.
+        boundary = np.asarray(envelope["boundary_points"], dtype=float)
+        for n in range(N):
+            valid = ~np.isnan(scores[n])
+            raw_tau = np.min(np.max(scores[n, valid] / (boundary[:, valid] + EPS), axis=1))
+            if t_hat == 0.0:
+                tau[n] = 0.0 if raw_tau == 0.0 else np.inf
+            else:
+                tau[n] = raw_tau / t_hat
+        return tau
+
+    # Legacy serialized envelopes retain their original score and threshold.
+    # Refit to opt into coordinatewise monotonicity.
     for n in range(N):
         valid = ~np.isnan(scores[n])
 

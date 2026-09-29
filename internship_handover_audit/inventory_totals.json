@@ -1,0 +1,26 @@
+{
+  "code_snapshot": {
+    "files": 40,
+    "bytes": 55263225
+  },
+  "alternative_gram_export_do_not_substitute": {
+    "files": 1,
+    "bytes": 368296
+  },
+  "analysis_input": {
+    "files": 4,
+    "bytes": 466361366
+  },
+  "host_reconstruction_input": {
+    "files": 402,
+    "bytes": 12625812158
+  },
+  "other_data_not_referenced_by_selected_pipeline": {
+    "files": 215,
+    "bytes": 9857443001
+  },
+  "intermediate_archive_separate_variants": {
+    "files": 38,
+    "bytes": 1205042570
+  }
+}

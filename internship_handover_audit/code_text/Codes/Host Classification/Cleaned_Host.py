@@ -1,0 +1,2396 @@
+
+# ORIGINAL NOTEBOOK CELL 1 (zero-based)
+import os
+import pickle
+import time
+import warnings
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+import matplotlib.pyplot as plt
+from matplotlib.patches import Patch
+import matplotlib.colors as mcolors
+import matplotlib.patches as mpatches
+import matplotlib.pyplot as plt
+
+warnings.filterwarnings("ignore")
+sns.set_theme(style="whitegrid")
+
+# ORIGINAL NOTEBOOK CELL 2 (zero-based)
+np.random.seed(13)
+
+# ORIGINAL NOTEBOOK CELL 4 (zero-based)
+alpha = 0.1
+NB = 5
+M = 250
+
+# ORIGINAL NOTEBOOK CELL 5 (zero-based)
+DATA_DIR = "../../Data"
+SCORES_PATH = f"{DATA_DIR}/phage_host_scores.parquet"
+METADATA_PATH = f"{DATA_DIR}/metadata.csv"
+GRAM_PRED_PATH = "../gram_type_predictions.csv"
+
+print("Loading phage-level scores ...")
+t0 = time.time()
+phage_scores = pd.read_parquet(SCORES_PATH)
+print(f"  shape : {phage_scores.shape}  ({time.time()-t0:.1f}s)")
+
+print("Loading metadata ...")
+t0 = time.time()
+meta_df = pd.read_csv(METADATA_PATH, index_col="proteinID")
+print(f"  shape : {meta_df.shape}  ({time.time()-t0:.1f}s)")
+
+print("Loading gram predictions ...")
+t0 = time.time()
+gram_pred_df = pd.read_csv(GRAM_PRED_PATH).set_index("accession")
+for col in ["pred_gramneg", "pred_grampos"]:
+    if gram_pred_df[col].dtype != bool:
+        gram_pred_df[col] = (
+            gram_pred_df[col].astype(str).str.strip().str.lower()
+            .map({"true": True, "false": False, "1": True, "0": False})
+        )
+    assert gram_pred_df[col].isna().sum() == 0, f"{col}: unmapped/NaN values after normalization"
+    assert gram_pred_df[col].dtype == bool, f"{col}: did not convert cleanly to bool"
+print(f"  shape : {gram_pred_df.shape}  ({time.time()-t0:.1f}s)")
+
+# ORIGINAL NOTEBOOK CELL 7 (zero-based)
+phage_meta = meta_df.reset_index().groupby("accession")[["host", "host_type", "split"]].first()
+phage_df = phage_scores.join(phage_meta, how="inner")
+phage_df["split"] = phage_df["split"].astype(int)
+
+print(f"\nPhage-level shape after join: {phage_df.shape}")
+print("\nSplit distribution:")
+print(phage_df["split"].value_counts().sort_index())
+print("\nHost distribution (top 15):")
+print(phage_df["host"].value_counts().head(15))
+
+# ORIGINAL NOTEBOOK CELL 9 (zero-based)
+score_cols = [c for c in phage_scores.columns]
+
+# Host genus = prefix before first underscore
+all_hosts = sorted(set(c.split("_")[0] for c in score_cols))
+print(f"Host: {len(all_hosts)}")
+print(all_hosts)
+
+# Map each host to its column indices
+host_col_map = {h: [i for i, c in enumerate(score_cols) if c.split("_")[0] == h] for h in all_hosts}
+print("\nColumns per host (sample):")
+for h in all_hosts:
+    print(f"  {h}: {len(host_col_map[h])} columns")
+
+# ORIGINAL NOTEBOOK CELL 11 (zero-based)
+# Ground-truth host -> gram-type lookup (from metadata)
+host_to_gramtype = (phage_df.dropna(subset=["host_type"]).drop_duplicates("host").set_index("host")["host_type"].to_dict())
+print("Observed host_type values in metadata:", phage_df["host_type"].dropna().unique().tolist())
+
+# Check that all hosts have a gram-type label
+gram_pos_hosts = sorted(h for h in all_hosts if host_to_gramtype.get(h) == "gram-pos")
+gram_neg_hosts = sorted(h for h in all_hosts if host_to_gramtype.get(h) == "gram-neg")
+
+# Check for hosts with missing gram-type labels
+missing_gram = [h for h in all_hosts if h not in host_to_gramtype]
+print(f"Gram-pos hosts: {len(gram_pos_hosts)}  |  Gram-neg hosts: {len(gram_neg_hosts)}")
+if missing_gram:
+    print(f"Missing Gram labels for: {missing_gram}")
+assert not missing_gram, ( "Hosts with no gram-type label will silently fall back to all_hosts in "
+                          "candidate_hosts_for() — fix the metadata before continuing.")
+
+# Check that all observed host_type values are either "gram-pos" or "gram-neg"
+observed_values = set(phage_df["host_type"].dropna().unique())
+assert observed_values <= {"gram-pos", "gram-neg"}, (f"Unexpected host_type values: {observed_values - {'gram-pos', 'gram-neg'}}")
+
+# ORIGINAL NOTEBOOK CELL 12 (zero-based)
+# Candidate host selection function
+def candidate_hosts_for(accession):
+    """
+    Restricts candidate host targets strictly based on the model's 
+    predicted gram-type output.
+    """
+    if accession not in gram_pred_df.index:
+        return all_hosts
+    row = gram_pred_df.loc[accession]
+    allowed = []
+    if row["pred_gramneg"]: allowed += gram_neg_hosts
+    if row["pred_grampos"]: allowed += gram_pos_hosts
+    return allowed if allowed else all_hosts
+
+# ORIGINAL NOTEBOOK CELL 14 (zero-based)
+# Filter phages to only those with hosts in the metadata
+phage_df = phage_df[phage_df["host"].isin(all_hosts)].copy()
+
+test_df  = phage_df[phage_df["split"] == 0].copy()          # touch ONLY once, at the very end
+val_df   = phage_df[phage_df["split"] == 1].copy()          # tune M, NB, monotonization direction, thresholds here
+train_df = phage_df[~phage_df["split"].isin([0, 1])].copy() 
+
+print(f"Training phages: {len(train_df)}")
+print(f"Validation phages: {len(val_df)}")
+print(f"Test phages: {len(test_df)}")
+print("\nValidation host distribution:")
+print(val_df["host"].value_counts())
+print("\nTest host distribution:")
+print(test_df["host"].value_counts())
+
+# ORIGINAL NOTEBOOK CELL 15 (zero-based)
+# Requires meta_df to have the protein-cluster column — check its actual name first:
+print([c for c in meta_df.columns if "pc" in c.lower() or "cluster" in c.lower()])
+
+# ORIGINAL NOTEBOOK CELL 16 (zero-based)
+# Cluster column for filtering
+CLUSTER_COL = "pc"  # replace with whatever the printed list above actually shows
+
+# Identify clusters associated with Ralstonia hosts in train and test sets
+phage_meta_full = meta_df.reset_index().groupby("accession")[["host", "host_type", "split", CLUSTER_COL]].first()
+
+ralstonia_clusters_train = set(phage_meta_full[(phage_meta_full["host"] == "Ralstonia") & (phage_meta_full["split"] != 0)][CLUSTER_COL])
+ralstonia_clusters_test  = set(phage_meta_full[(phage_meta_full["host"] == "Ralstonia") & (phage_meta_full["split"] == 0)][CLUSTER_COL])
+
+overlap = ralstonia_clusters_train & ralstonia_clusters_test
+print(f"Ralstonia train clusters: {len(ralstonia_clusters_train)}")
+print(f"Ralstonia test clusters:  {len(ralstonia_clusters_test)}")
+print(f"Overlapping clusters (train+test contamination): {len(overlap)}")
+print(f"Fraction of test clusters contaminated: {len(overlap) / max(len(ralstonia_clusters_test), 1):.2%}")
+
+# ORIGINAL NOTEBOOK CELL 18 (zero-based)
+print("Mean score at true-host columns vs all columns (training set):")
+sample_hosts = all_hosts[:5]
+for h in sample_hosts:
+    h_idx = host_col_map[h]
+    mask_h = train_df["host"] == h
+    if mask_h.sum() == 0:
+        continue
+    true_host_mean = np.nanmean(train_df.loc[mask_h, score_cols].values[:, h_idx])
+    all_mean = np.nanmean(train_df.loc[mask_h, score_cols].values)
+    print(f"  {h}: true-host cols mean={true_host_mean:.3f}, all cols mean={all_mean:.3f}, n={mask_h.sum()}")
+
+# ORIGINAL NOTEBOOK CELL 20 (zero-based)
+def raw_to_nc(raw_array):
+    """Transforming scores to NC: NC = 1 - raw_score"""
+    return np.where(np.isnan(raw_array), np.nan, 1.0 - raw_array)
+
+# ORIGINAL NOTEBOOK CELL 21 (zero-based)
+train_raw = train_df[score_cols].values
+val_raw = val_df[score_cols].values
+test_raw = test_df[score_cols].values
+train_labels = train_df["host"].to_numpy(dtype=str)
+val_labels = val_df["host"].to_numpy(dtype=str)
+test_labels = test_df["host"].to_numpy(dtype=str)
+
+train_nc = raw_to_nc(train_raw)
+val_nc = raw_to_nc(val_raw)
+test_nc = raw_to_nc(test_raw)
+
+print(f"Train shape: {train_nc.shape}")
+print(f"Validation shape: {val_nc.shape}")
+print(f"Test shape : {test_nc.shape}")
+
+print(f"NaN fraction in train : {np.isnan(train_nc).mean():.3f}")
+print(f"NaN fraction in validation : {np.isnan(val_nc).mean():.3f}")
+print(f"NaN fraction in test : {np.isnan(test_nc).mean():.3f}")
+
+# ORIGINAL NOTEBOOK CELL 23 (zero-based)
+# Compute the (1-alpha) quantile for a specific class
+def quantile_for_class(tau_scores, labels, cls, alpha):
+    vals = np.sort(tau_scores[labels == cls])
+    n = len(vals)
+    if n == 0:
+        return 0.0
+    idx = int(np.ceil((n + 1) * (1 - alpha))) - 1
+    return vals[np.clip(idx, 0, n - 1)]
+
+# Compute t_hat for multiclass classification
+def compute_t_hat_multiclass(tau_scores, labels, classes, alpha):
+    """t_hat = max over all classes of the per-class (1-alpha) quantile."""
+    return max(quantile_for_class(tau_scores, labels, c, alpha) for c in classes)
+
+# ORIGINAL NOTEBOOK CELL 25 (zero-based)
+# Collapsed method for building the envelope
+def collapsed_build_envelope(S1, S2, labels_S2, classes, alpha):
+    S1_1d = np.nanmean(S1, axis=1, keepdims=True)
+    S2_1d = np.nanmean(S2, axis=1, keepdims=True)
+    q_tilde = np.nanquantile(S1_1d, 1 - alpha)
+    tau_scores = (S2_1d / (q_tilde + 1e-12)).ravel()
+    t_hat = compute_t_hat_multiclass(tau_scores, labels_S2, classes, alpha)
+    return {"q_tilde": q_tilde, "t_hat": t_hat, "method": "collapsed"}
+
+# Compute collapsed tau scores
+def collapsed_tau(scores, envelope):
+    scores_1d = np.nanmean(scores, axis=1)
+    return scores_1d / (envelope["q_tilde"] * envelope["t_hat"] + 1e-12)
+
+# Check if collapsed tau scores are in the envelope region
+def collapsed_is_in_region(scores, envelope):
+    return np.nanmean(scores, axis=1) <= envelope["q_tilde"] * envelope["t_hat"]
+
+# ORIGINAL NOTEBOOK CELL 27 (zero-based)
+# Sample M random unit directions in K dimensions, restricted to the positive orthant
+def sample_positive_sphere(rng, M, K):
+    V = np.abs(rng.standard_normal((M, K)))
+    return V / (np.linalg.norm(V, axis=1, keepdims=True) + 1e-12)
+
+# Compute the radial boundary radius for query directions based on sampled directions and calibrated radii
+def radial_boundary_radius(dirs_query, U, q_tilde, kappa=8.0):
+    """
+    dirs_query: (N, K) unit direction vectors for the query points
+    U: (M, K) sampled unit directions
+    q_tilde: (M,) calibrated radius for each sampled direction
+    Smoothly blends the M sampled radii by directional closeness (a von
+    Mises-Fisher-style kernel) instead of hard-assigning to one ray. Higher
+    kappa -> sharper falloff, closer to nearest-neighbor; lower kappa -> more
+    smoothing across the sphere. This is what actually makes the boundary a
+    continuous function of direction, i.e. genuinely "radial."
+    """
+
+    # Compute cosine similarity between query directions and sampled directions
+    cos_sim = dirs_query @ U.T
+    w = np.exp(kappa * (cos_sim - cos_sim.max(axis=1, keepdims=True)))
+    w /= w.sum(axis=1, keepdims=True)
+    return w @ q_tilde
+
+# Add angular_bandwidth_deg=30.0 to the end of the parameters here:
+def radial_build_envelope(S1, S2, labels_S2, classes, alpha, M, neighbor_frac=0.2, rng=None, kappa=8.0, angular_bandwidth_deg=30.0):
+    if rng is None:
+        raise ValueError("radial_build_envelope requires an explicit rng for reproducibility")
+    N1, K = S1.shape
+   
+    U = sample_positive_sphere(rng, M, K)
+
+    # Compute magnitudes and unit directions for S1, ignoring NaNs
+    mags = np.array([np.linalg.norm(S1[n, ~np.isnan(S1[n])]) for n in range(N1)])
+    dirs = np.zeros((N1, K))
+    for n in range(N1):
+        valid = ~np.isnan(S1[n])
+        if mags[n] > 1e-12:
+            dirs[n, valid] = S1[n, valid] / mags[n]
+
+    q_tilde = np.zeros(M)
+    marginal_mag_q = np.quantile(mags, 1 - alpha)
+    min_neighbors = max(10, int(neighbor_frac * N1))
+    cos_band = np.cos(np.deg2rad(angular_bandwidth_deg))
+    for m in range(M):
+        cos_sims = dirs @ U[m]
+        # Use an actual angular-bandwidth neighborhood instead of always grabbing a fixed  count of "nearest" points. With a fixed k, sparse directions end up borrowing
+        # from points that are angularly far away just to fill the quota — that's what inflates the boundary in directions with little real support.
+        in_band = cos_sims >= cos_band
+        n_in_band = int(in_band.sum())
+        if n_in_band >= min_neighbors:
+            q_tilde[m] = np.quantile(mags[in_band], 1 - alpha)
+        elif n_in_band > 0:
+            w = n_in_band / min_neighbors
+            q_tilde[m] = w * np.quantile(mags[in_band], 1 - alpha) + (1 - w) * marginal_mag_q
+        else:
+            # No data at all in this direction
+            q_tilde[m] = marginal_mag_q
+
+    N2 = S2.shape[0]
+    tau_scores = np.zeros(N2)
+    for n in range(N2):
+        valid = ~np.isnan(S2[n])
+        if valid.sum() == 0:
+            tau_scores[n] = 0.0
+            continue
+        mag = np.linalg.norm(S2[n, valid])
+        if mag < 1e-12:
+            tau_scores[n] = 0.0
+            continue
+        d = S2[n, valid] / mag
+        U_valid = U[:, valid]
+        U_valid_norm = np.linalg.norm(U_valid, axis=1, keepdims=True)
+        U_valid = U_valid / (U_valid_norm + 1e-12)
+        r = radial_boundary_radius(d[None, :], U_valid, q_tilde, kappa)[0]
+        tau_scores[n] = mag / (r + 1e-12)
+
+    t_hat = compute_t_hat_multiclass(tau_scores, labels_S2, classes, alpha)
+    return {"U": U, "q_tilde": q_tilde, "t_hat": t_hat, "kappa": kappa, "method": "radial"}
+
+# Compute radial tau scores for S2
+def radial_tau(scores, envelope):
+    U, q_tilde, t_hat = envelope["U"], envelope["q_tilde"], envelope["t_hat"]
+    kappa = envelope.get("kappa", 8.0)
+    N, K = scores.shape
+    tau = np.zeros(N)
+    for n in range(N):
+        valid = ~np.isnan(scores[n])
+        if valid.sum() == 0:
+            tau[n] = 0.0
+            continue
+        mag = np.linalg.norm(scores[n, valid])
+        if mag < 1e-12:
+            tau[n] = 0.0
+            continue
+        d = scores[n, valid] / mag
+        U_valid = U[:, valid]
+        U_valid_norm = np.linalg.norm(U_valid, axis=1, keepdims=True)
+        U_valid = U_valid / (U_valid_norm + 1e-12)
+        r = radial_boundary_radius(d[None, :], U_valid, q_tilde, kappa)[0]
+        tau[n] = mag / (r * t_hat + 1e-12)
+    return tau
+
+# Check if radial tau scores are in the envelope region
+def radial_is_in_region(scores, envelope):
+    return radial_tau(scores, envelope) <= 1.0
+
+# ORIGINAL NOTEBOOK CELL 29 (zero-based)
+# Discovers the shape of the envelope by computing conditional quantiles of each target dimension given bins of each conditioning dimension. It returns the bin edges, 
+# the limits for each target dimension conditioned on each bin of each conditioning dimension, and the marginal quantiles for each target dimension.
+def strip_shape_discovery(S1, alpha, NB, monotonic_window=2, min_samples=3):
+    N1, K = S1.shape
+    bin_edges = np.array([np.linspace(np.nanmin(S1[:, j]), np.nanmax(S1[:, j]), NB + 1) for j in range(K)
+    ])
+    limits = np.zeros((K, K, NB))
+    marginal_quantiles = np.array([np.nanquantile(S1[:, i], 1 - alpha) for i in range(K)])
+    marginal_quantiles = np.where(np.isnan(marginal_quantiles), 1.0, marginal_quantiles)
+
+    for j in range(K):
+        for n in range(NB):
+            lo, hi = bin_edges[j, n], bin_edges[j, n + 1]
+            in_strip = (~np.isnan(S1[:, j])) & (S1[:, j] >= lo) & (S1[:, j] < hi)
+            for i in range(K):
+                if i == j:
+                    continue
+                src_mask = in_strip & (~np.isnan(S1[:, i]))
+                n_src = src_mask.sum()
+                non_nan_i = S1[~np.isnan(S1[:, i]), i]
+                marginal_i = (np.quantile(non_nan_i, 1 - alpha) if len(non_nan_i) > 0 else marginal_quantiles[i])
+                if n_src >= min_samples:
+                    limits[j, i, n] = np.quantile(S1[src_mask, i], 1 - alpha)
+                elif n_src == 0:
+                    limits[j, i, n] = marginal_i
+                else:
+                    # Blend the noisy conditional quantile with the marginal quantile, weighted by how much local evidence there actually is, instead of
+                    # jumping straight from "conditional" to "pure marginal" the moment n_src crosses below min_samples.
+                    w = n_src / min_samples
+                    conditional_i = np.quantile(S1[src_mask, i], 1 - alpha)
+                    limits[j, i, n] = w * conditional_i + (1 - w) * marginal_i
+
+    # Windowed monotonic smoothing: a bin's limit can only be pulled up by bins within
+    # `monotonic_window` steps of it, using the PRE-propagation values (limits_raw), not a
+    # chained running max. This keeps the "don't get narrower than a nearby bin" intent
+    # local, instead of letting one sparse/fallback bin at the far end of the range set
+    # the limit for every bin behind it.
+    limits_raw = limits.copy()
+    for j in range(K):
+        for i in range(K):
+            if i == j:
+                continue
+            for n in range(NB):
+                hi_n = min(n + monotonic_window, NB - 1)
+                limits[j, i, n] = limits_raw[j, i, n:hi_n + 1].max()
+
+    return bin_edges, limits, marginal_quantiles
+
+
+################################## Compute the bin indices for each score in S based on the provided bin edges #################################
+def get_bin_indices(scores, bin_edges):
+    K = scores.shape[1]
+    M = bin_edges.shape[1] - 1
+    return np.array([np.clip(np.where(np.isnan(scores[:, j]), 0, np.digitize(scores[:, j], bin_edges[j]) - 1), 0, M - 1) for j in range(K)]).T
+
+
+# Compute the tau scores for each point in S based on the provided bin edges, limits, and marginal quantiles
+def strip_tau_scores(S, bin_edges, limits, marginal_quantiles):
+    N, K = S.shape
+    bin_idx = get_bin_indices(S, bin_edges)
+
+    j_idx = np.arange(K)[None, :, None]
+    i_idx = np.arange(K)[None, None, :]
+    m_idx = bin_idx[:, :, None]
+
+    lims = limits[j_idx, i_idx, m_idx]
+
+    S_i = S[:, np.newaxis, :]
+    S_j = S[:, :, np.newaxis]
+
+    nan_i = np.isnan(S_i)
+    nan_j = np.isnan(S_j)
+
+    mq = marginal_quantiles[np.newaxis, np.newaxis, :]
+    mq_i = np.broadcast_to(mq, (N, K, K))   # marginal quantile of the TARGET dim, broadcast to (N,K,K)
+
+    ratio = np.zeros((N, K, K))
+    both_avail = (~nan_i) & (~nan_j)
+    miss_i = nan_i & (~nan_j)
+    # Conditioning dim j missing, target i observed: can't tell which bin the point falls
+    # into along j, so drop the bin-conditional limit and fall back to the target's own
+    # marginal quantile instead. Generalizes to any K automatically — applied per target dim.
+    miss_j = (~nan_i) & nan_j
+    # Both i and j missing: no observed value and no bin to condition on. Left at the
+    # ratio=0 initialization on purpose (no constraint contributed) — absence of evidence
+    # shouldn't manufacture a rejection signal. Coverage validity is unaffected regardless
+    # of this choice (same rule applies at calibration and test time); this only affects
+    # efficiency, and "don't penalize" is the conservative option.
+
+    ratio = np.where(both_avail, np.broadcast_to(S_i, (N, K, K)) / (lims + 1e-12), ratio)
+    ratio = np.where(miss_i, mq_i / (lims + 1e-12), ratio)
+    ratio = np.where(miss_j, np.broadcast_to(S_i, (N, K, K)) / (mq_i + 1e-12), ratio)
+     
+    return np.nanmax(ratio, axis=(1, 2))
+
+
+################################### Build the strip-based envelope  ######################################
+def strip_build_envelope(S1, S2, labels_S2, classes, alpha, number_of_bins=NB, monotonic_window=2, min_samples=3):
+    # This part accurately discovers shapes
+    bin_edges, limits, marginal_quantiles = strip_shape_discovery(
+        S1, alpha, number_of_bins, monotonic_window=monotonic_window, min_samples=min_samples
+    )
+    
+    # Calculate the tau scores for calibration
+    tau_scores = strip_tau_scores(S2, bin_edges, limits, marginal_quantiles)
+    t_hat = compute_t_hat_multiclass(tau_scores, labels_S2, classes, alpha)
+    return {"bin_edges": bin_edges, "limits": limits, "marginal_quantiles": marginal_quantiles, "t_hat": t_hat, "method": "strip"}
+
+################################## Compute strip tau scores for S2 #########################################
+def strip_tau(scores, envelope):
+    raw = strip_tau_scores(scores, envelope["bin_edges"], envelope["limits"], envelope["marginal_quantiles"])
+    return raw / (envelope["t_hat"] + 1e-12)
+
+
+################################# Check if strip tau scores are in the envelope region #################################
+def strip_is_in_region(scores, envelope):
+    tau = strip_tau_scores(scores, envelope["bin_edges"], envelope["limits"], envelope["marginal_quantiles"])
+    return tau <= envelope["t_hat"]
+
+# ORIGINAL NOTEBOOK CELL 30 (zero-based)
+################################# Check if strip tau scores are in the envelope region #################################
+def is_in_region(scores, envelope):
+    if envelope["method"] == "radial":
+        return radial_is_in_region(scores, envelope)
+    elif envelope["method"] == "strip":
+        return strip_is_in_region(scores, envelope)
+    return collapsed_is_in_region(scores, envelope)
+
+def compute_tau(scores, envelope):
+    if envelope["method"] == "collapsed":
+        return collapsed_tau(scores, envelope)
+    elif envelope["method"] == "strip":
+        return strip_tau(scores, envelope)
+    return radial_tau(scores, envelope)
+
+# ORIGINAL NOTEBOOK CELL 32 (zero-based)
+def build_per_host_envelopes(train_nc, train_labels, all_hosts, score_cols, host_col_map, alpha,
+                              method="collapsed", seed=13, **method_kwargs):
+    """
+    method_kwargs lets you override the method-specific hyperparameters at call time
+    (instead of relying on the global NB / M / default kappa), e.g.:
+      build_per_host_envelopes(..., method="strip",  NB=8)
+      build_per_host_envelopes(..., method="radial", M=500, kappa=16, neighbor_frac=0.2)
+    This is what makes validation-set hyperparameter sweeps actually work — previously
+    strip's NB was bound as a default argument at function-definition time, so reassigning
+    the global NB had no effect.
+    """
+    rng = np.random.default_rng(seed)
+    envelopes = {}
+
+    for h in all_hosts:
+        h_idx_full = host_col_map[h]
+        if len(h_idx_full) == 0:
+            continue
+
+        mask_h = train_labels == h
+        n_h = mask_h.sum()
+        if n_h < 3:
+            print(f"  SKIP {h}: only {n_h} training phages")
+            continue
+
+        train_nc_h_full = train_nc[mask_h][:, h_idx_full]
+
+        has_data = ~np.isnan(train_nc_h_full).all(axis=0)
+        zero_data = np.array(h_idx_full)[~has_data]
+
+        if len(zero_data) > 0: 
+            print(f"  {h}: dropping {len(zero_data)} column(s) with zero data -> " f"{np.array(score_cols)[zero_data].tolist()}")
+        h_idx = list(np.array(h_idx_full)[has_data])
+        train_nc_h = train_nc_h_full[:, has_data]
+
+        if method == "strip":
+            if len(zero_data) > 0:
+                print(f"  {h}: {len(zero_data)} column(s) with zero data -> "
+                      f"{np.array(score_cols)[zero_data].tolist()} "
+                      f"(kept, marginal-quantile fallback will apply)")
+            h_idx = list(h_idx_full)
+            train_nc_h = train_nc_h_full
+        else:
+            if len(zero_data) > 0:
+                print(f"  {h}: dropping {len(zero_data)} column(s) with zero data -> "
+                      f"{np.array(score_cols)[zero_data].tolist()}")
+            h_idx = list(np.array(h_idx_full)[has_data])
+            train_nc_h = train_nc_h_full[:, has_data]
+
+        idx = rng.permutation(n_h)
+        half = n_h // 2
+        S1 = train_nc_h[idx[:half]]
+        S2 = train_nc_h[idx[half:]]
+        labels_S2 = np.array([h] * len(S2))
+
+        if method == "collapsed":
+            env = collapsed_build_envelope(S1, S2, labels_S2, [h], alpha)
+
+        elif method == "radial":
+            env = radial_build_envelope(
+                S1, S2, labels_S2, [h], alpha,
+                M=method_kwargs.get("M", M),
+                rng=rng,
+                kappa=method_kwargs.get("kappa", 16.0),
+                neighbor_frac=method_kwargs.get("neighbor_frac", 0.2),
+                angular_bandwidth_deg=method_kwargs.get("angular_bandwidth_deg", 30.0),
+            )
+
+
+        else:
+            env = strip_build_envelope(
+                S1, S2, labels_S2, [h], alpha,
+                number_of_bins=method_kwargs.get("NB", NB),
+                monotonic_window=method_kwargs.get("monotonic_window", 2),
+                min_samples=method_kwargs.get("min_samples", 3),
+            )
+
+        envelopes[h] = {"envelope": env, "col_indices": h_idx}   # reduced h_idx
+
+    print(f"  Built {len(envelopes)} host envelopes")
+    return envelopes
+
+# ORIGINAL NOTEBOOK CELL 34 (zero-based)
+def predict_host(test_raw, per_host_envelopes, active_hosts_list):
+    N = len(test_raw)
+    n_h = len(active_hosts_list)
+
+    inside_matrix = np.zeros((N, n_h), dtype=bool)
+    tau_matrix = np.zeros((N, n_h), dtype=float)
+
+    for j, h in enumerate(active_hosts_list):
+        h_idx = per_host_envelopes[h]["col_indices"]
+        env_h = per_host_envelopes[h]["envelope"]
+
+        raw_h = test_raw[:, h_idx]
+        nc_h = np.where(np.isnan(raw_h), np.nan, 1.0 - raw_h)
+
+        inside_matrix[:, j] = is_in_region(nc_h, env_h)
+        tau_matrix[:, j] = compute_tau(nc_h, env_h)
+
+    results = []
+    for i in range(N):
+        pred_set = [active_hosts_list[j] for j in range(n_h) if inside_matrix[i, j]]
+        forced = False
+        if len(pred_set) == 0:
+            forced = True
+            best_j = int(np.argmin(tau_matrix[i]))
+            pred_set = [active_hosts_list[best_j]]
+        results.append({
+            "prediction_set": pred_set,
+            "forced":         forced,
+            "tau_per_host":   {active_hosts_list[j]: tau_matrix[i, j] for j in range(n_h)}
+        })
+    return results
+
+# ORIGINAL NOTEBOOK CELL 36 (zero-based)
+def evaluate_multiclass(results, true_labels, all_hosts, alpha):
+    n = len(results)
+    set_sizes = [len(r["prediction_set"]) for r in results]
+    covered = sum(true_labels[i] in r["prediction_set"] for i, r in enumerate(results))
+    forced = sum(r["forced"] for r in results)
+    singletons = [(r, true_labels[i]) for i, r in enumerate(results) if len(r["prediction_set"]) == 1]
+
+    correct_singletons = sum(r["prediction_set"][0] == lbl for r, lbl in singletons)
+
+    per_host_coverage = {}
+    for h in all_hosts:
+        h_idx = [i for i, lbl in enumerate(true_labels) if lbl == h]
+        if not h_idx:
+            continue
+        per_host_coverage[h] = sum(true_labels[i] in results[i]["prediction_set"] for i in h_idx) / len(h_idx)
+
+    return {
+        "coverage":           covered / n,
+        "avg_set_size":       np.mean(set_sizes),
+        "singleton_rate":     len(singletons) / n,
+        "singleton_accuracy": (correct_singletons / len(singletons) if singletons else None),
+        "forced_rate":        forced / n,
+        "set_sizes":          set_sizes,
+        "per_host_coverage":  per_host_coverage,
+        "min_host_coverage":  min(per_host_coverage.values()) if per_host_coverage else None,
+    }
+
+# ORIGINAL NOTEBOOK CELL 38 (zero-based)
+def tune_strip_NB(candidate_NBs, target_coverage=1 - alpha):
+    """Sweep NB for the strip method; fit on train, score on val with Gram-type filtering."""
+    rows = []
+    for nb_candidate in candidate_NBs:
+        envs = build_per_host_envelopes(
+            train_nc, train_labels, all_hosts, score_cols, host_col_map, alpha,
+            method="strip", NB=nb_candidate, seed=13
+        )
+        
+        results = []
+        for i, acc in enumerate(val_df.index):
+            allowed = candidate_hosts_for(acc)
+            active = {h: envs[h] for h in allowed if h in envs}
+            if not active:
+                active = envs  # fallback
+            results.append(predict_host(val_raw[i:i+1], active, list(active.keys()))[0])
+            
+        metrics = evaluate_multiclass(results, val_labels, all_hosts, alpha)
+        rows.append({"NB": nb_candidate, "coverage": metrics["coverage"],
+                     "avg_set_size": metrics["avg_set_size"]})
+        print(f"  NB={nb_candidate:3d}  val_coverage={metrics['coverage']:.3f}  "
+              f"val_avg_set_size={metrics['avg_set_size']:.2f}")
+
+    ok = [r for r in rows if r["coverage"] >= target_coverage]
+    best = min(ok, key=lambda r: r["avg_set_size"]) if ok else \
+           min(rows, key=lambda r: abs(r["coverage"] - target_coverage))
+    return best["NB"], rows
+
+# ORIGINAL NOTEBOOK CELL 39 (zero-based)
+print("Tuning strip NB on validation fold...")
+best_NB, strip_sweep_rows = tune_strip_NB([3, 5, 8, 10, 15, 20])
+print(f"-> selected NB = {best_NB}\n")
+
+# ORIGINAL NOTEBOOK CELL 40 (zero-based)
+def tune_radial(candidate_Ms, candidate_kappas, target_coverage=1 - alpha, neighbor_frac=0.2):
+    """Sweep M x kappa for the radial method; fit on train, score on val with Gram-type filtering."""
+    rows = []
+    for m_candidate in candidate_Ms:
+        for kappa_candidate in candidate_kappas:
+            envs = build_per_host_envelopes(
+                train_nc, train_labels, all_hosts, score_cols, host_col_map, alpha,
+                method="radial", seed=13, M=m_candidate, kappa=kappa_candidate,
+                neighbor_frac=neighbor_frac,
+            )
+            
+            results = []
+            for i, acc in enumerate(val_df.index):
+                allowed = candidate_hosts_for(acc)
+                active = {h: envs[h] for h in allowed if h in envs}
+                if not active:
+                    active = envs  # fallback
+                results.append(predict_host(val_raw[i:i+1], active, list(active.keys()))[0])
+                
+            metrics = evaluate_multiclass(results, val_labels, all_hosts, alpha)
+            rows.append({"M": m_candidate, "kappa": kappa_candidate,
+                          "coverage": metrics["coverage"], "avg_set_size": metrics["avg_set_size"]})
+            print(f"  M={m_candidate:4d}  kappa={kappa_candidate:5.1f}  "
+                  f"val_coverage={metrics['coverage']:.3f}  "
+                  f"val_avg_set_size={metrics['avg_set_size']:.2f}")
+
+    ok = [r for r in rows if r["coverage"] >= target_coverage]
+    best = min(ok, key=lambda r: r["avg_set_size"]) if ok else \
+           min(rows, key=lambda r: abs(r["coverage"] - target_coverage))
+    return (best["M"], best["kappa"]), rows
+
+# ORIGINAL NOTEBOOK CELL 41 (zero-based)
+print("Tuning radial M / kappa on validation fold...")
+(best_M, best_kappa), radial_sweep_rows = tune_radial([100, 250, 500], [4, 8, 16])
+print(f"-> selected M = {best_M}, kappa = {best_kappa}")
+
+# ORIGINAL NOTEBOOK CELL 43 (zero-based)
+print("\n" + "="*60)
+print(" BASELINE — no gram-type filtering (kept only for comparison) ")
+print("="*60)
+print("\nBuilding collapsed envelopes...")
+baseline_envs_c = build_per_host_envelopes(train_nc, train_labels, all_hosts, score_cols, host_col_map, alpha,
+                                           method="collapsed", seed=13)
+collapsed_results_unrestricted = predict_host(test_raw, baseline_envs_c, all_hosts)
+collapsed_metrics_unrestricted = evaluate_multiclass(
+    collapsed_results_unrestricted, test_labels, all_hosts, alpha)
+print(f"  coverage={collapsed_metrics_unrestricted['coverage']:.3f}  "
+      f"avg_set_size={collapsed_metrics_unrestricted['avg_set_size']:.2f}")
+
+# ORIGINAL NOTEBOOK CELL 45 (zero-based)
+print("\n" + "="*60)
+print(" GRAM-TYPE FILTERED EVALUATION ")
+print("="*60)
+
+print("\nBuilding collapsed envelopes...")
+per_host_envs_c = baseline_envs_c   
+
+print("\nBuilding radial envelopes...")
+per_host_envs_r = build_per_host_envelopes(train_nc, train_labels, all_hosts, score_cols, host_col_map, alpha, method="radial", 
+                                           seed=13, M=best_M, kappa=best_kappa)
+
+print("\nBuilding strip envelopes...")
+per_host_envs_s = build_per_host_envelopes(train_nc, train_labels, all_hosts, score_cols, host_col_map, alpha, method="strip", 
+                                           NB=best_NB, seed=13)
+envs_by_method = {"collapsed": per_host_envs_c, "radial": per_host_envs_r, "strip": per_host_envs_s}
+results_by_method, metrics_by_method = {}, {}
+
+for method_name, envs in envs_by_method.items():
+    results = []
+    for i, acc in enumerate(test_df.index):
+        allowed = candidate_hosts_for(acc)
+        active = {h: envs[h] for h in allowed if h in envs}
+        if not active:
+            active = envs  # fallback if no predicted metadata information is extracted
+        
+        # Test phage sequence calculation
+        results.append(predict_host(test_raw[i:i+1], active, list(active.keys()))[0])
+        
+    metrics = evaluate_multiclass(results, test_labels, all_hosts, alpha)
+    results_by_method[method_name] = results
+    metrics_by_method[method_name] = metrics
+    
+    print(f"{method_name:10s}  coverage={metrics['coverage']:.3f}  "
+          f"avg_set_size={metrics['avg_set_size']:.2f}  "
+          f"singleton_rate={metrics['singleton_rate']:.3f}  "
+          f"forced_rate={metrics['forced_rate']:.3f}")
+
+collapsed_metrics = metrics_by_method["collapsed"]
+radial_metrics = metrics_by_method["radial"]
+strip_metrics = metrics_by_method["strip"]
+
+# ORIGINAL NOTEBOOK CELL 46 (zero-based)
+# Evaluate Unrestricted (Baseline — no Gram-type filtering) on Test Set 
+unrestricted_metrics = {}
+
+# Collapsed Unrestricted 
+res_c_unrestricted = predict_host(test_raw, per_host_envs_c, all_hosts)
+unrestricted_metrics["Collapsed 1D"] = evaluate_multiclass(res_c_unrestricted, test_labels, all_hosts, alpha)
+
+# Radial Unrestricted
+res_r_unrestricted = predict_host(test_raw, per_host_envs_r, all_hosts)
+unrestricted_metrics["Radial"] = evaluate_multiclass(res_r_unrestricted, test_labels, all_hosts, alpha)
+
+# Strip Unrestricted
+res_s_unrestricted = predict_host(test_raw, per_host_envs_s, all_hosts)
+unrestricted_metrics["Strip"] = evaluate_multiclass(res_s_unrestricted, test_labels, all_hosts, alpha)
+
+
+# Build the Comparison DataFrame
+methods = ["Collapsed 1D", "Radial", "Strip"]
+method_keys = ["collapsed", "radial", "strip"]
+
+table_rows = []
+for display_name, key in zip(methods, method_keys):
+    m_unrestr = unrestricted_metrics[display_name]
+    m_filtered = metrics_by_method[key]
+    
+    table_rows.append({
+        "Method": display_name,
+        "Configuration": "Unrestricted (Full H, N = 54)",
+        "Coverage": f"{m_unrestr['coverage']:.3f}",
+        "Avg. Set Size": f"{m_unrestr['avg_set_size']:.2f}"
+    })
+    table_rows.append({
+        "Method": display_name,
+        "Configuration": "Gram-Type Filtered (H_cand)",
+        "Coverage": f"{m_filtered['coverage']:.3f}",
+        "Avg. Set Size": f"{m_filtered['avg_set_size']:.2f}"
+    })
+
+comparison_df = pd.DataFrame(table_rows)
+
+print("=== Table 5: Impact of Gram-Type Filtering on Host Prediction ===")
+print(comparison_df.to_string(index=False))
+
+# ORIGINAL NOTEBOOK CELL 48 (zero-based)
+methods_names = ["Radial", "Strip", "Collapsed 1D"]
+all_metrics = [radial_metrics, strip_metrics, collapsed_metrics]
+
+rows = []
+for name, m in zip(methods_names, all_metrics):
+    rows.append({
+        "Method":           name,
+        "Coverage":         f"{m['coverage']:.3f}",
+        "Avg set size":     f"{m['avg_set_size']:.2f}",
+        "Singleton rate":   f"{m['singleton_rate']:.3f}",
+        "Singleton acc.":   f"{m['singleton_accuracy']:.3f}" if m["singleton_accuracy"] else "N/A",
+        "Forced rate":      f"{m['forced_rate']:.3f}",
+        "Min host cov.":    f"{m['min_host_coverage']:.3f}" if m["min_host_coverage"] else "N/A",
+    })
+
+print("=== TEST RESULTS ===")
+print(pd.DataFrame(rows).to_string(index=False))
+
+# ORIGINAL NOTEBOOK CELL 50 (zero-based)
+fig, axes = plt.subplots(1, 2, figsize=(18, 5))
+colors = ["steelblue", "darkorange", "mediumseagreen"]
+
+# Overall coverage
+ax = axes[0]
+vals = [m["coverage"] for m in all_metrics]
+bars = ax.bar(methods_names, vals, color=colors, alpha=0.8)
+ax.axhline(1 - alpha, color="red", linestyle="--", label=f"Target ({1-alpha:.2f})")
+ax.set_ylim(0, 1.05)
+ax.set_title("Overall Coverage")
+ax.legend(fontsize=8)
+for bar, val in zip(bars, vals):
+    ax.text(bar.get_x() + bar.get_width()/2, val + 0.01, f"{val:.3f}", ha="center", va="bottom", fontsize=9)
+
+# Average set size
+ax = axes[1]
+vals = [m["avg_set_size"] for m in all_metrics]
+bars = ax.bar(methods_names, vals, color=colors, alpha=0.8)
+ax.set_title("Average Set Size")
+ax.set_ylabel(f"Hosts in prediction set (of {len(all_hosts)})")
+for bar, val in zip(bars, vals):
+    ax.text(bar.get_x() + bar.get_width()/2, val + 0.1, f"{val:.1f}", ha="center", va="bottom", fontsize=9)
+
+plt.tight_layout()
+plt.show()
+
+# ORIGINAL NOTEBOOK CELL 52 (zero-based)
+def plot_per_host_coverage(metrics, color, title):
+    train_counts = train_df["host"].value_counts().to_dict()
+    test_counts = test_df["host"].value_counts().to_dict()
+    hosts_sorted = sorted(all_hosts, key=lambda h: test_counts.get(h, 0), reverse=True)
+
+    plt.figure(figsize=(15, 12))
+    coverage_vals = [metrics["per_host_coverage"].get(h, 0.0) for h in hosts_sorted]
+    bars = plt.barh(hosts_sorted, coverage_vals, color=color, alpha=0.8)
+    plt.axvline(1 - alpha, color="red", linestyle="--", label=f"Target ({1-alpha:.2f})")
+    for bar, h in zip(bars, hosts_sorted):
+        plt.text(x=bar.get_width(), y=bar.get_y() + bar.get_height()/2,
+                  s=f" train: {train_counts.get(h,0)} | test: {test_counts.get(h,0)}",
+                  va="center", ha="left", fontsize=9)
+    plt.xlim(0, 1.25)
+    plt.title(f"Per-Host Class-Conditional Coverage Accuracy Breakdown ({title})",
+              fontsize=13, fontweight="bold", pad=15)
+    plt.xlabel("Empirical Coverage Rate"); plt.ylabel("Host Target Species")
+    plt.legend(loc="upper left"); plt.tight_layout(); plt.show()
+
+plot_per_host_coverage(collapsed_metrics, "mediumseagreen", "Collapsed 1D")
+plot_per_host_coverage(radial_metrics, "steelblue", "Radial")
+plot_per_host_coverage(strip_metrics, "darkorange", "Strip")
+
+# ORIGINAL NOTEBOOK CELL 53 (zero-based)
+def plot_all_hosts_coverage_combined(all_metrics_dict):
+    train_counts = train_df["host"].value_counts().to_dict()
+    test_counts = test_df["host"].value_counts().to_dict()
+    hosts_sorted = sorted(all_hosts, key=lambda h: test_counts.get(h, 0), reverse=True)
+
+    y_indices = np.arange(len(hosts_sorted))
+    bar_height = 0.26  
+
+    colors = {"Collapsed 1D": "mediumseagreen", "Radial": "steelblue", "Strip": "darkorange"}
+
+    plt.figure(figsize=(16, 24))
+    
+    # Plot the three grouped bars with manual vertical offsets
+    for idx, (name, metrics) in enumerate(all_metrics_dict.items()):
+        coverage_vals = [metrics["per_host_coverage"].get(h, 0.0) for h in hosts_sorted]
+        offset = (idx - 1) * bar_height  # -0.26 for Collapsed, 0 for Radial, +0.26 for Strip
+        plt.barh(y_indices + offset, coverage_vals, height=bar_height, 
+                 color=colors[name], label=name, alpha=0.85)
+
+    # Target dashed line at 0.90
+    plt.axvline(1 - alpha, color="red", linestyle="--", linewidth=1.5, label=f"Target ({1-alpha:.2f})")
+
+    # Add sample count text at a fixed x position to prevent overlaps
+    for i, h in enumerate(hosts_sorted):
+        plt.text(x=1.01, y=i, 
+                 s=f"train: {train_counts.get(h, 0)} | test: {test_counts.get(h, 0)}",
+                 va="center", ha="left", fontsize=8.5, color="#333333")
+
+    plt.yticks(y_indices, hosts_sorted, fontsize=10)
+    plt.gca().invert_yaxis()  # Most frequent hosts at the top
+    plt.xlim(0, 1.25)
+    plt.xlabel("Empirical Coverage", fontsize=12)
+    plt.ylabel("Target Host", fontsize=12)
+    plt.title("Class Conditional Coverage Breakdown Per Host (All Methods)", 
+              fontsize=14, fontweight="bold", pad=15)
+    plt.legend(loc="upper left", fontsize=11)
+    plt.tight_layout()
+    plt.show()
+
+# Call the function with all three metric dictionaries
+plot_all_hosts_coverage_combined({
+    "Collapsed 1D": collapsed_metrics,
+    "Radial": radial_metrics,
+    "Strip": strip_metrics
+})
+
+# ORIGINAL NOTEBOOK CELL 55 (zero-based)
+methods = ["collapsed", "radial", "strip"]
+method_display = {"collapsed": "Collapsed", "radial": "Radial", "strip": "Strip"}
+colors = {"collapsed": "mediumseagreen", "radial": "steelblue", "strip": "darkorange"}
+
+# order hosts by training set size, richest first, so the plot doubles as a richness-vs-set-size view left to right
+hosts_sorted = sorted(all_hosts, key=lambda h: train_df["host"].value_counts().get(h, 0), reverse=True)
+positions_base = np.arange(len(hosts_sorted))
+box_width = 0.25
+
+# Transform your data into a "long-format" DataFrame
+data_list = []
+for method in methods:
+    for h in hosts_sorted:
+        sizes = [len(r["prediction_set"]) 
+                 for r, true_h in zip(results_by_method[method], test_labels) if true_h == h]
+        for s in (sizes if sizes else [np.nan]):
+            data_list.append({"True Host": h, "Set Size": s, "Envelope Type": method_display[method]})
+
+df_all_sets = pd.DataFrame(data_list)
+
+# Sort hosts based on the mean size of one of the types (e.g., 'Strip')
+order_ref = df_all_sets[df_all_sets["Envelope Type"] == "Strip"].groupby("True Host")["Set Size"].mean().sort_values(ascending=False).index
+
+# Create the Plot
+plt.figure(figsize=(14, max(8, len(hosts_sorted) * 0.6)))
+
+sns.boxplot(data=df_all_sets, x="Set Size",  y="True Host", hue="Envelope Type", order=order_ref, palette=[colors[m] for m in methods], # Maps your custom colors
+            fliersize=1, width=0.7)
+
+# Final Polish
+plt.axvline(x=1, color="red", linestyle="--", alpha=0.7, label="Threshold (Size = 1)")
+plt.title("Prediction Set Size Distribution Per Host Across Envelope Types", fontsize=14, fontweight="bold", pad=15 )
+plt.xlabel("Prediction Set Size", fontsize=11)
+plt.ylabel("True Target Host Genus", fontsize=11)
+plt.grid(axis='x', linestyle=':', alpha=0.5)
+plt.legend(title="Envelope Type", loc="upper right")
+
+plt.tight_layout()
+plt.show()
+
+# ORIGINAL NOTEBOOK CELL 56 (zero-based)
+# Gather the set sizes for ALL methods
+all_data = []
+for method in methods:
+    for i, res in enumerate(results_by_method[method]):
+        all_data.append({
+            "True Host": test_labels[i],
+            "Prediction Set Size": len(res["prediction_set"]),
+            "Method": method_display[method]
+        })
+
+df_all = pd.DataFrame(all_data)
+
+# Define the palette mapping
+palette_mapping = {
+    "Collapsed": "mediumseagreen", 
+    "Radial": "steelblue", 
+    "Strip": "darkorange"
+}
+
+# Create the FacetGrid with the palette argument
+g = sns.FacetGrid(
+    df_all, 
+    col="True Host", 
+    hue="Method", 
+    col_wrap=4, 
+    sharex=False, 
+    sharey=False, 
+    height=3, 
+    aspect=1.3,
+    palette=palette_mapping  # Custom colors applied here
+)
+
+g.map_dataframe(sns.histplot, x="Prediction Set Size", discrete=True, element="step", alpha=0.8)
+
+for ax in g.axes.flat:
+    ax.set_xlabel("Set Size")
+    ax.tick_params(labelbottom=True)
+    ax.set_ylabel("Frequency Count")
+
+g.add_legend(title="Envelope Type", loc="upper right", frameon=True)
+g.set_titles("{col_name}", fontweight="bold", size=13)
+plt.subplots_adjust(top=0.95, hspace=0.8, wspace=0.4)
+plt.suptitle("Prediction Set Size Distribution Per Host Genus", fontsize=18, fontweight="bold")
+plt.show()
+
+# ORIGINAL NOTEBOOK CELL 57 (zero-based)
+train_counts = train_df["host"].value_counts()
+methods = ["collapsed", "radial", "strip"]
+colors = {"collapsed": "mediumseagreen", "radial": "steelblue", "strip": "darkorange"}
+
+fig, ax = plt.subplots(figsize=(11, 7))
+rng = np.random.default_rng(0)
+
+for method in methods:
+    xs, ys = [], []
+    for r, true_h in zip(results_by_method[method], test_labels):
+        if true_h not in train_counts:
+            continue
+        xs.append(train_counts[true_h])
+        ys.append(len(r["prediction_set"]))
+    xs = np.array(xs, dtype=float)
+    ys = np.array(ys, dtype=float)
+
+    x_jitter = xs * np.exp(rng.uniform(-0.05, 0.05, size=len(xs)))  
+    y_jitter = ys + rng.uniform(-0.15, 0.15, size=len(ys))
+
+    ax.scatter(x_jitter, y_jitter, label=method.capitalize(),
+               color=colors[method], alpha=0.2, s=15)
+
+ax.set_xscale("log")
+ax.set_xlabel("Number of training phages for true host (log scale)")
+ax.set_ylabel("Prediction set size (per test phage)")
+ax.set_title("Training Set Size vs. Prediction Set Size — every individual test phage")
+ax.axhline(y=1, color="red", linestyle="--", alpha=0.5, label="Set size = 1")
+ax.legend(title="Envelope Type")
+ax.grid(True, linestyle=":", alpha=0.5)
+plt.tight_layout()
+plt.show()
+
+# ORIGINAL NOTEBOOK CELL 58 (zero-based)
+train_counts = train_df["host"].value_counts()
+methods = ["collapsed", "radial", "strip"]
+colors = {"collapsed": "mediumseagreen", "radial": "steelblue", "strip": "darkorange"}
+
+fig, ax = plt.subplots(figsize=(10, 7))
+
+for method in methods:
+    xs, ys = [], []
+    for h in all_hosts:
+        sizes = [len(r["prediction_set"])
+                 for r, true_h in zip(results_by_method[method], test_labels) if true_h == h]
+        if not sizes or h not in train_counts:
+            continue
+        xs.append(train_counts[h])
+        ys.append(np.mean(sizes))
+    ax.scatter(xs, ys, label=method.capitalize(), color=colors[method], alpha=0.75, s=50)
+
+ax.set_xscale("log")
+ax.set_xlabel("Number of training phages (host, log scale)")
+ax.set_ylabel("Average prediction set size")
+ax.set_title("Training Set Size vs. Average Prediction Set Size, per Host")
+ax.axhline(y=1, color="red", linestyle="--", alpha=0.5, label="Set size = 1")
+ax.legend(title="Envelope Type")
+ax.grid(True, linestyle=":", alpha=0.5)
+plt.tight_layout()
+plt.show()
+
+# ORIGINAL NOTEBOOK CELL 60 (zero-based)
+unique_hosts = sorted(list(set(test_labels)))
+valid_host_set = set(unique_hosts)   # was: host_col_map = set(all_hosts)
+host_to_idx = {host: idx for idx, host in enumerate(unique_hosts)}
+
+# Extracting from 'results_by_method' matching the keys from your execution loop
+methods_dict = {
+    "Radial": results_by_method["radial"],
+    "Strip": results_by_method["strip"],
+    "Collapsed 1D": results_by_method["collapsed"]
+}
+
+# Create the supporting df_set_sizes DataFrame used for the row normalization sums
+df_set_sizes = pd.DataFrame({"True Host": test_labels})
+
+
+# GENERATE THE HEATMAPS 
+for method_name, results_list in methods_dict.items():
+    # Initialize a matrix of zeros: shape (True Hosts, Predicted Hosts)
+    matrix_counts = np.zeros((len(unique_hosts), len(unique_hosts)))   # was len(all_hosts)
+    
+    for idx, true_lbl in enumerate(test_labels):
+        row_idx = host_to_idx[true_lbl]
+        pred_set = results_list[idx]["prediction_set"]
+        
+        for pred_host in pred_set:
+            if pred_host in valid_host_set:                                     
+                col_idx = host_to_idx[pred_host]                              
+                matrix_counts[row_idx, col_idx] += 1
+                
+    # Calculate total true samples per host to normalize into inclusion probabilities
+    row_sums = df_set_sizes.groupby("True Host").size().reindex(unique_hosts).values[:, None]
+    
+    # Divide counts by sums safely (avoiding division by zero)
+    df_heatmap = pd.DataFrame(matrix_counts / np.where(row_sums == 0, 1, row_sums),
+                           index=unique_hosts, columns=unique_hosts)   # was columns=all_hosts
+    # Plotting configuration
+    plt.figure(figsize=(16, 14))
+    sns.heatmap(df_heatmap, cmap="viridis", vmin=0.0, vmax=1.0, cbar_kws={'label': 'Inclusion Frequency (Probability)'}, 
+                xticklabels=True, yticklabels=True)
+    plt.title(f"Prediction Inclusion Heatmap: {method_name}\n(Rows: True Host | Columns: Predicted Hosts in Set)", fontsize=17, fontweight="bold", pad=20)
+    plt.xlabel("Predicted Hosts Included in Set", fontsize=13, fontweight="bold", labelpad=10)
+    plt.ylabel("True Target Host", fontsize=11, labelpad=10)
+    plt.tight_layout()
+    plt.show()
+
+# ORIGINAL NOTEBOOK CELL 63 (zero-based)
+print("\n" + "="*75)
+print(" FILTERING OUT LOW-DATA HOSTS")
+print("="*75)
+
+# Retain hosts with at least the specified number of training phages.
+min_train_phages_required = 100
+train_host_counts = pd.Series(train_labels).value_counts()
+robust_hosts = train_host_counts[train_host_counts >= min_train_phages_required].index.tolist()
+
+print(f"Original unique hosts evaluated: {len(all_hosts)}")
+print(f"Hosts selected (with >= {min_train_phages_required} training samples): {len(robust_hosts)}")
+print(f"Remaining hosts to evaluate: {sorted(robust_hosts)}")
+
+# Use five strip-envelope bins for this restricted-host sensitivity analysis.
+modulated_M = 5
+print(f"\nRe-building Strip envelopes for {len(robust_hosts)} hosts (have >= {min_train_phages_required} training phages)")
+
+
+host_col_map = {h: [i for i, c in enumerate(score_cols) if c.split("_")[0] == h] for h in all_hosts}
+
+robust_per_host_envs_s = {}
+for h in robust_hosts:
+    h_idx = host_col_map[h]
+    mask_h = train_labels == h
+    n_h = mask_h.sum()
+    train_nc_h = train_nc[mask_h][:, h_idx]
+    
+    # Mirroring split validation structure from build_per_host_envelopes
+    rng = np.random.default_rng(42)
+    idx = rng.permutation(n_h)
+    half = n_h // 2
+    S1 = train_nc_h[idx[:half]]
+    S2 = train_nc_h[idx[half:]]
+    labels_S2 = np.array([h] * len(S2))
+    
+    # Custom calibration with dynamic custom parameters
+    env = strip_build_envelope(S1, S2, labels_S2, [h], alpha, number_of_bins=modulated_M)
+    robust_per_host_envs_s[h] = {"envelope": env, "col_indices": h_idx}
+
+# Evaluate the filtered set on the test set sequence loop
+robust_strip_results = []
+robust_test_labels = []
+
+for i, acc in enumerate(test_df.index):
+    true_host = test_labels[i]
+    if true_host not in robust_hosts:
+        continue # Skip test sequences that don't belong to our filtered robust hosts
+        
+    allowed = candidate_hosts_for(acc)
+    # Restrict tracking targets to allowed lists that exist inside the robust envelopes structure
+    active = {h: robust_per_host_envs_s[h] for h in allowed if h in robust_per_host_envs_s}
+    if not active:
+        active = robust_per_host_envs_s
+        
+    robust_strip_results.append(predict_host(test_raw[i:i+1], active, list(active.keys()))[0])
+    robust_test_labels.append(true_host)
+
+# Calculate metrics configuration updates
+robust_strip_metrics = evaluate_multiclass(robust_strip_results, np.array(robust_test_labels), robust_hosts, alpha)
+
+print("\n--- NEW STRIP PERFORMANCE ---")
+print(f"Robust Strip Coverage (M={modulated_M}): {robust_strip_metrics['coverage']:.3f}")
+print(f"Robust Strip Average Set Size: {robust_strip_metrics['avg_set_size']:.2f}")
+
+# ORIGINAL NOTEBOOK CELL 65 (zero-based)
+def get_2d_scores(df, host, func_x, func_y):
+    return df[[f"{host}_{func_x}", f"{host}_{func_y}"]]
+
+def build_2d_envelope(train_df, host, func_x, func_y, alpha, method, seed=13, M=5):
+    raw = get_2d_scores(train_df[train_df["host"] == host], host, func_x, func_y).values
+    nc = raw_to_nc(raw)
+    rng = np.random.default_rng(seed)
+    idx = rng.permutation(len(nc))
+    S1, S2 = nc[idx[:len(nc)//2]], nc[idx[len(nc)//2:]]
+    labels_S2 = np.array([host] * len(S2))
+    if method == "collapsed":
+        return collapsed_build_envelope(S1, S2, labels_S2, [host], alpha)
+    elif method == "radial":
+        return radial_build_envelope(S1, S2, labels_S2, [host], alpha, M=M, rng=rng)
+    else:
+        return strip_build_envelope(S1, S2, labels_S2, [host], alpha, number_of_bins=NB)
+
+# ORIGINAL NOTEBOOK CELL 66 (zero-based)
+staph_cols = [c for c in phage_scores.columns if c.startswith("Staphylococcus")]
+print("Staphylococcus predictors:", staph_cols)
+
+# ORIGINAL NOTEBOOK CELL 67 (zero-based)
+# Mask for rows where the true host is Staphylococcus
+mask_staph = train_df["host"] == "Staphylococcus"
+
+# Calculate the mean raw score for each Staphylococcus column
+staph_means = train_df.loc[mask_staph, staph_cols].mean().sort_values()
+
+print("Weakest predictors (lowest mean scores) for Staphylococcus:")
+print(staph_means.head(40)) 
+
+# ORIGINAL NOTEBOOK CELL 68 (zero-based)
+def plot_diagnostic_host_envelope_2d(host_name="Staphylococcus", func_x="lysin", func_y="annealing", alpha=0.1):
+    cx = f"{host_name}_{func_x}"
+    cy = f"{host_name}_{func_y}"
+    
+    if cx not in score_cols or cy not in score_cols:
+        print(f"{host_name}: missing {func_x}/{func_y} columns in score_cols")
+        return
+
+    idx_x = score_cols.index(cx)
+    idx_y = score_cols.index(cy)
+    
+    # Extract 2D NC slices for the test set
+    is_own_test = (test_labels == host_name)
+    own_nc = test_nc[is_own_test][:, [idx_x, idx_y]]
+    other_nc = test_nc[~is_own_test][:, [idx_x, idx_y]]
+    
+    # Extract 1D projection phages (observed on X, missing on Y)
+    own_only_x = own_nc[~np.isnan(own_nc[:, 0]) & np.isnan(own_nc[:, 1]), 0]
+    other_only_x = other_nc[~np.isnan(other_nc[:, 0]) & np.isnan(other_nc[:, 1]), 0]
+    
+    # Fit 2D Envelopes on full training slice (keeping NaNs for correct fallback limits 
+    is_own_train = (train_labels == host_name)
+    train_nc_2d = train_nc[is_own_train][:, [idx_x, idx_y]]
+    
+    n_h = len(train_nc_2d)
+    rng = np.random.default_rng(13)
+    half = n_h // 2
+    perm = rng.permutation(n_h)
+    S1, S2 = train_nc_2d[perm[:half]], train_nc_2d[perm[half:]]
+    lbls_S2 = np.array([host_name] * len(S2))
+    
+    env_c = collapsed_build_envelope(S1, S2, lbls_S2, [host_name], alpha)
+    env_r = radial_build_envelope(S1, S2, lbls_S2, [host_name], alpha, M=best_M, kappa=best_kappa, rng=rng)
+    env_s = strip_build_envelope(S1, S2, lbls_S2, [host_name], alpha, number_of_bins=best_NB)
+    
+    methods = [("collapsed", env_c), ("radial", env_r), ("strip", env_s)]
+    
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5), dpi=300)
+    
+    x_max = 1.05
+    y_max = 1.05
+    
+    gx, gy = np.meshgrid(np.linspace(0, x_max, 250), np.linspace(0, y_max, 250))
+    grid_nc = np.column_stack([gx.ravel(), gy.ravel()])
+    
+    for ax, (method, env) in zip(axes, methods):
+        # In/out decisions for test set
+        if method == "collapsed":
+            grid_in = collapsed_is_in_region(grid_nc, env).astype(float).reshape(gx.shape)
+            own_in = collapsed_is_in_region(own_nc, env) if len(own_nc) else np.array([])
+            other_in = collapsed_is_in_region(other_nc, env) if len(other_nc) else np.array([])
+        elif method == "radial":
+            grid_in = radial_is_in_region(grid_nc, env).astype(float).reshape(gx.shape)
+            own_in = radial_is_in_region(own_nc, env) if len(own_nc) else np.array([])
+            other_in = radial_is_in_region(other_nc, env) if len(other_nc) else np.array([])
+        else:
+            grid_in = np.nan_to_num(strip_is_in_region(grid_nc, env).astype(float)).reshape(gx.shape)
+            own_in = strip_is_in_region(own_nc, env) if len(own_nc) else np.array([])
+            other_in = strip_is_in_region(other_nc, env) if len(other_nc) else np.array([])
+
+        # Ensure star-shaped / coordinate monotonicity down to the axes
+        for r in range(grid_in.shape[0]):
+            for c in range(grid_in.shape[1]):
+                if grid_in[r, c] == 1.0:
+                    grid_in[:r+1, :c+1] = 1.0
+
+        # Shading & Boundaries
+        ax.imshow(grid_in, origin='lower', extent=[0, x_max, 0, y_max],
+                  cmap='Greys', alpha=0.2, vmin=0, vmax=1, aspect='auto', zorder=0)
+        
+        if method == "collapsed":
+            t = env["q_tilde"] * env["t_hat"]
+            ax.plot([0, 2*t], [2*t, 0], "k--", lw=1.5, zorder=4)
+        elif method == "radial":
+            ax.contour(gx, gy, grid_in, levels=[0.5], colors="darkorange", linewidths=1.5, zorder=4)
+        else:
+            ax.contour(gx, gy, grid_in, levels=[0.5], colors="teal", linewidths=1.5, zorder=4)
+
+        # Scatter Points
+        if len(other_nc):
+            ax.scatter(other_nc[~other_in, 0], other_nc[~other_in, 1],
+                       c="#80b1d3", s=15, alpha=0.35, marker="x", label="other host outside (TN)", zorder=1)
+
+        if len(other_only_x):
+            for i, x_val in enumerate(other_only_x):
+                lbl = f"other host ({func_x} only)" if i == 0 else ""
+                ax.axvline(x=x_val, color="#80b1d3", linestyle=":", alpha=0.35, linewidth=1.0, label=lbl, zorder=1)
+
+        if len(own_only_x):
+            for i, x_val in enumerate(own_only_x):
+                lbl = f"true host ({func_x} only)" if i == 0 else ""
+                ax.axvline(x=x_val, color="#b2182b", linestyle=":", alpha=0.55, linewidth=1.2, label=lbl, zorder=2)
+
+        if len(own_nc):
+            ax.scatter(own_nc[own_in, 0], own_nc[own_in, 1],
+                       c="#1f78b4", s=20, label="true host inside (TP)", zorder=3)
+            ax.scatter(own_nc[~own_in, 0], own_nc[~own_in, 1],
+                       c="#b2182b", marker="x", s=30, linewidth=1.5, label="true host outside (FN)", zorder=3)
+            
+        if len(other_nc):
+            ax.scatter(other_nc[other_in, 0], other_nc[other_in, 1],
+                       c="#b2182b", s=20, label="other host inside (FP)", zorder=3)
+
+        tp = int(own_in.sum()) if len(own_nc) else 0
+        fn = int((~own_in).sum()) if len(own_nc) else 0
+        fp = int(other_in.sum()) if len(other_nc) else 0
+        tn = int((~other_in).sum()) if len(other_nc) else 0
+        own_cov = tp / max(tp + fn, 1)
+
+        ax.set_title(f"{host_name} — {method}\nown_cov={own_cov:.2f}\nTP={tp} FN={fn} FP={fp} TN={tn}", fontsize=10)
+        ax.set_xlabel(func_x, fontsize=10)
+        ax.set_ylabel(func_y, fontsize=10)
+        ax.set_xlim(-0.02, x_max)
+        ax.set_ylim(-0.02, y_max)
+        ax.legend(loc="lower right", fontsize=6.5, framealpha=0.85)
+
+    plt.tight_layout()
+    plt.show()
+
+# ORIGINAL NOTEBOOK CELL 69 (zero-based)
+plot_diagnostic_host_envelope_2d("Staphylococcus", "transcriptional_activator", "capsid")
+
+# ORIGINAL NOTEBOOK CELL 70 (zero-based)
+plot_diagnostic_host_envelope_2d("Staphylococcus", "transcriptional_activator", "reductase")
+
+# ORIGINAL NOTEBOOK CELL 73 (zero-based)
+host = "Escherichia"  
+h_idx = host_col_map[host]
+mask_h = train_labels == host
+train_nc_h = train_nc[mask_h][:, h_idx]
+
+rng = np.random.default_rng(42)
+n_h = train_nc_h.shape[0]
+idx = rng.permutation(n_h)
+half = n_h // 2
+S1 = train_nc_h[idx[:half]]
+S2 = train_nc_h[idx[half:]]
+labels_S2 = np.array([host] * len(S2))
+
+env = strip_build_envelope(S1, S2, labels_S2, [host], alpha)
+tau2 = strip_tau_scores(S2, env["bin_edges"], env["limits"], env["marginal_quantiles"])
+print("Self-coverage on S2 (must be ~0.9):", np.mean(tau2 <= env["t_hat"]))
+
+# Now check against this host's actual test-fold points
+mask_test_h = test_labels == host
+test_nc_h = test_nc[mask_test_h][:, h_idx]
+tau_test = strip_tau_scores(test_nc_h, env["bin_edges"], env["limits"], env["marginal_quantiles"])
+print("Test-fold coverage (target ~0.9):", np.mean(tau_test <= env["t_hat"]))
+
+# ORIGINAL NOTEBOOK CELL 75 (zero-based)
+print("train_nc min/max:", np.nanmin(train_nc), np.nanmax(train_nc))
+print("test_nc min/max:", np.nanmin(test_nc), np.nanmax(test_nc))
+print("Any negative NC?", np.nansum(train_nc < 0), np.nansum(test_nc < 0))
+print("Any NC > 1?", np.nansum(train_nc > 1), np.nansum(test_nc > 1))
+
+# ORIGINAL NOTEBOOK CELL 77 (zero-based)
+# Check if the host exists and how many samples it has
+h_idx = host_col_map[host]
+train_nc_h = train_nc[train_labels == host][:, h_idx]
+n_h = train_nc_h.shape[0]
+
+print(f"Found {n_h} training samples for host '{host}'")
+
+
+if n_h > 0:
+    rng = np.random.default_rng(42)
+    idx = rng.permutation(n_h)
+    S1 = train_nc_h[idx[:n_h//2]]
+    print(f"Shape-discovery subset shape: {S1.shape}")
+    
+    if S1.shape[0] == 0:
+        print("Warning: S1 is empty because n_h was less than 2.")
+else:
+    print(f"Error: No data found for host '{host}'. Check your labels and map.")
+
+# ORIGINAL NOTEBOOK CELL 78 (zero-based)
+h_idx = host_col_map[host]
+train_nc_h = train_nc[train_labels == host][:, h_idx]
+rng = np.random.default_rng(42)
+n_h = train_nc_h.shape[0]
+idx = rng.permutation(n_h)
+S1 = train_nc_h[idx[:n_h//2]]
+
+for j in range(S1.shape[1]):
+    col = S1[:, j]
+    col_valid = col[~np.isnan(col)]
+    if len(col_valid) == 0:
+        print(f"col {j}: ALL NaN in S1")
+    elif np.nanmin(col) == np.nanmax(col):
+        print(f"col {j}: constant value {np.nanmin(col)} — degenerate bin_edges")
+
+# ORIGINAL NOTEBOOK CELL 80 (zero-based)
+per_host_strip_cov = {}
+for h in all_hosts:
+    h_idx = host_col_map[h]
+    if len(h_idx) == 0:
+        continue
+    mask_h = train_labels == h
+    n_h = mask_h.sum()
+    if n_h < 3:
+        continue
+    train_nc_h = train_nc[mask_h][:, h_idx]
+    rng = np.random.default_rng(42)
+    idx = rng.permutation(n_h)
+    half = n_h // 2
+    S1 = train_nc_h[idx[:half]]
+    S2 = train_nc_h[idx[half:]]
+    labels_S2 = np.array([h] * len(S2))
+
+    env = strip_build_envelope(S1, S2, labels_S2, [h], alpha)
+    tau2 = strip_tau_scores(S2, env["bin_edges"], env["limits"], env["marginal_quantiles"])
+    self_cov = np.mean(tau2 <= env["t_hat"])
+
+    mask_test_h = test_labels == h
+    if mask_test_h.sum() == 0:
+        continue
+    test_nc_h = test_nc[mask_test_h][:, h_idx]
+    tau_test = strip_tau_scores(test_nc_h, env["bin_edges"], env["limits"], env["marginal_quantiles"])
+    test_cov = np.mean(tau_test <= env["t_hat"])
+
+    per_host_strip_cov[h] = (n_h, self_cov, test_cov)
+
+
+df_diag = pd.DataFrame(per_host_strip_cov, index=["n_h", "self_cov", "test_cov"]).T
+df_diag = df_diag.sort_values("test_cov")
+print(df_diag.to_string())
+
+# ORIGINAL NOTEBOOK CELL 82 (zero-based)
+fallback_counts = {}
+for h in all_hosts:
+    h_idx = host_col_map[h]
+    if len(h_idx) == 0:
+        continue
+    mask_h = train_labels == h
+    n_h = mask_h.sum()
+    if n_h < 3:
+        continue
+    train_nc_h = train_nc[mask_h][:, h_idx]
+    rng = np.random.default_rng(42)
+    idx = rng.permutation(n_h)
+    S1 = train_nc_h[idx[:n_h // 2]]
+    N1, K = S1.shape
+
+    bin_edges = np.array([
+        np.linspace(np.nanmin(S1[:, j]), np.nanmax(S1[:, j]), NB + 1)
+        for j in range(K)
+    ])
+    total_pairs = 0
+    fallback_pairs = 0
+    for j in range(K):
+        for m in range(NB):
+            lo, hi = bin_edges[j, m], bin_edges[j, m + 1]
+            in_strip = (~np.isnan(S1[:, j])) & (S1[:, j] >= lo) & (S1[:, j] < hi)
+            for i in range(K):
+                if i == j:
+                    continue
+                total_pairs += 1
+                src_mask = in_strip & (~np.isnan(S1[:, i]))
+                if src_mask.sum() < 3:
+                    fallback_pairs += 1
+    fallback_counts[h] = (n_h, K, fallback_pairs / total_pairs)
+
+df_fb = pd.DataFrame(fallback_counts, index=["n_h", "K", "fallback_rate"]).T
+print(df_fb.sort_values("fallback_rate", ascending=False).to_string())
+print("\nOverall mean fallback rate:", df_fb["fallback_rate"].mean())
+
+# ORIGINAL NOTEBOOK CELL 84 (zero-based)
+# Feature Selection
+def select_top_features(train_nc, train_labels, host, h_idx, k_select=5):
+    """Pick the k_select columns (of this host's own scoring functions) that
+    best separate this host's true phages from everyone else's, by comparing
+    median NC for true-host phages vs. all other phages on each column.
+    Smaller NC = better match, so a bigger (median_other - median_h) gap
+    means that column is more discriminative for this host."""
+    mask_h = train_labels == host
+    scores = []
+    for col in h_idx:
+        vals_h = train_nc[mask_h, col]
+        vals_other = train_nc[~mask_h, col]
+        med_h = np.nanmedian(vals_h)
+        med_other = np.nanmedian(vals_other)
+        gap = (med_other - med_h) if not (np.isnan(med_h) or np.isnan(med_other)) else -np.inf
+        scores.append(gap)
+    order = np.argsort(scores)[::-1]
+    return [h_idx[i] for i in order[:k_select]]
+
+
+# Build a strip envelope for a given host, optionally using feature selection
+def build_strip_envelope_for_host(train_nc, train_labels, host, h_idx, alpha, number_of_bins=NB):
+    mask_h = train_labels == host
+    n_h = mask_h.sum()
+    train_nc_h = train_nc[mask_h][:, h_idx]
+    rng = np.random.default_rng(42)
+    idx = rng.permutation(n_h)
+    half = n_h // 2
+    S1 = train_nc_h[idx[:half]]
+    S2 = train_nc_h[idx[half:]]
+    labels_S2 = np.array([host] * len(S2))
+    return strip_build_envelope(
+        S1, S2, labels_S2, [host], alpha, number_of_bins=number_of_bins)
+
+
+# Evaluate the coverage and average set size for a given list of hosts, optionally using feature selection
+def evaluate_strip_set_sizes(hosts_list, feature_select=False, k_select=5):
+    envelopes = {}
+    col_idx_map = {}
+    for h in hosts_list:
+        h_idx = host_col_map[h]
+        h_idx_use = select_top_features(train_nc, train_labels, h, h_idx, k_select) if feature_select else h_idx
+        col_idx_map[h] = h_idx_use
+        envelopes[h] = build_strip_envelope_for_host(train_nc, train_labels, h, h_idx_use, alpha)
+
+    mask_test = np.isin(test_labels, hosts_list)
+    test_nc_sub = test_nc[mask_test]
+    test_labels_sub = test_labels[mask_test]
+    n_test = test_nc_sub.shape[0]
+    n_hosts = len(hosts_list)
+
+    # (n_test, n_hosts) matrix of raw tau scores and thresholds, built one host at a time
+    tau_matrix = np.zeros((n_test, n_hosts))
+    t_hats = np.zeros(n_hosts)
+    for col, h in enumerate(hosts_list):
+        env = envelopes[h]
+        x = test_nc_sub[:, col_idx_map[h]]
+        tau_matrix[:, col] = strip_tau_scores(x, env["bin_edges"], env["limits"], env["marginal_quantiles"])
+        t_hats[col] = env["t_hat"]
+
+    in_region = tau_matrix <= t_hats[np.newaxis, :]
+    set_sizes = in_region.sum(axis=1)
+
+    # forced fallback for empty sets: pick the host with smallest tau
+    empty_rows = set_sizes == 0
+    forced_choice = np.argmin(tau_matrix[empty_rows], axis=1) if empty_rows.any() else np.array([])
+
+    host_arr = np.array(hosts_list)
+    covered = 0
+    final_set_sizes = []
+    forced_idx = 0
+    for row in range(n_test):
+        true_host = test_labels_sub[row]
+        if set_sizes[row] == 0:
+            pred_set = [host_arr[forced_choice[forced_idx]]]
+            forced_idx += 1
+            final_set_sizes.append(1)
+        else:
+            pred_set = list(host_arr[in_region[row]])
+            final_set_sizes.append(set_sizes[row])
+        if true_host in pred_set:
+            covered += 1
+
+    coverage = covered / n_test
+    avg_set_size = np.mean(final_set_sizes)
+    return coverage, avg_set_size
+
+
+filtered_hosts = ['Enterococcus', 'Escherichia', 'Flavobacterium', 'Gordonia', 'Klebsiella',
+                   'Lactococcus', 'Microbacterium', 'Mycobacterium', 'Pseudomonas', 'Ralstonia',
+                   'Salmonella', 'Staphylococcus', 'Streptococcus', 'Streptomyces', 'Synechococcus', 'Vibrio']
+
+print("=== OLD: full K, no feature selection ===")
+cov_old, size_old = evaluate_strip_set_sizes(filtered_hosts, feature_select=False)
+print(f"coverage={cov_old:.3f}  avg_set_size={size_old:.3f}\n")
+
+for k in [3, 5, 8]:
+    print(f"=== NEW: top-{k} feature selection per host ===")
+    cov_new, size_new = evaluate_strip_set_sizes(filtered_hosts, feature_select=True, k_select=k)
+    print(f"coverage={cov_new:.3f}  avg_set_size={size_new:.3f}\n")
+
+# ORIGINAL NOTEBOOK CELL 85 (zero-based)
+zero_data_fallback = 0
+partial_fallback = 0
+total_fallback = 0
+
+for h in all_hosts:
+    h_idx = host_col_map[h]
+    if len(h_idx) == 0: continue
+    mask_h = train_labels == h
+    n_h = mask_h.sum()
+    if n_h < 3: continue
+    train_nc_h = train_nc[mask_h][:, h_idx]
+    rng = np.random.default_rng(42)
+    idx = rng.permutation(n_h)
+    S1 = train_nc_h[idx[:n_h // 2]]
+    N1, K = S1.shape
+    bin_edges = np.array([np.linspace(np.nanmin(S1[:, j]), np.nanmax(S1[:, j]), NB + 1) for j in range(K)])
+
+    for j in range(K):
+        for m in range(NB):
+            lo, hi = bin_edges[j, m], bin_edges[j, m + 1]
+            in_strip = (~np.isnan(S1[:, j])) & (S1[:, j] >= lo) & (S1[:, j] < hi)
+            for i in range(K):
+                if i == j: continue
+                src_mask = in_strip & (~np.isnan(S1[:, i]))
+                if src_mask.sum() < 3:
+                    total_fallback += 1
+                    non_nan_i = S1[~np.isnan(S1[:, i]), i]
+                    if len(non_nan_i) == 0:
+                        zero_data_fallback += 1
+                    else:
+                        partial_fallback += 1
+
+print(f"Total fallback pairs: {total_fallback}")
+print(f"  -> partial (host has SOME data for column i): {partial_fallback} ({partial_fallback/total_fallback:.1%})")
+print(f"  -> zero-data (1.0 sentinel fires):             {zero_data_fallback} ({zero_data_fallback/total_fallback:.1%})")
+
+# ORIGINAL NOTEBOOK CELL 87 (zero-based)
+# Restrict host_col_map to just lysin + tail_appendage 
+lysin_ta_host_col_map = {}
+for h in all_hosts:
+    cols = []
+    for suffix in ["lysin", "tail_appendage"]:
+        col_name = f"{h}_{suffix}"
+        if col_name in score_cols:
+            cols.append(score_cols.index(col_name))
+    if len(cols) == 2:
+        lysin_ta_host_col_map[h] = cols
+
+lysin_ta_hosts = list(lysin_ta_host_col_map.keys())
+missing_hosts = [h for h in all_hosts if h not in lysin_ta_host_col_map]
+if missing_hosts:
+    print(f"Skipping {len(missing_hosts)} host(s) without both lysin & tail_appendage columns: {missing_hosts}")
+print(f"Building lysin+tail_appendage envelopes for {len(lysin_ta_hosts)} hosts")
+
+# Build per-host envelopes for each method, using only these 2 columns 
+envs_2fn = {}
+for method in ["collapsed", "radial", "strip"]:
+    print(f"\nBuilding {method} envelopes (lysin + tail_appendage only)...")
+    envs_2fn[method] = build_per_host_envelopes(
+        train_nc, train_labels, lysin_ta_hosts, score_cols, lysin_ta_host_col_map, alpha,
+        method=method, seed=13
+    )
+
+# Predict with gram-type filtering, restricted to hosts that have both functions
+results_by_method_2fn = {}
+metrics_by_method_2fn = {}
+eval_labels_2fn = None
+
+for method_name, envs in envs_2fn.items():
+    results = []
+    kept_labels = []
+    for i, acc in enumerate(test_df.index):
+        true_host = test_labels[i]
+        if true_host not in lysin_ta_hosts:
+            continue  # no lysin/tail_appendage envelope exists for this host's true label
+        allowed = candidate_hosts_for(acc)
+        active = {h: envs[h] for h in allowed if h in envs}
+        if not active:
+            active = envs
+        results.append(predict_host(test_raw[i:i+1], active, list(active.keys()))[0])
+        kept_labels.append(true_host)
+
+    kept_labels = np.array(kept_labels)
+    metrics = evaluate_multiclass(results, kept_labels, lysin_ta_hosts, alpha)
+    results_by_method_2fn[method_name] = results
+    metrics_by_method_2fn[method_name] = metrics
+    eval_labels_2fn = kept_labels  # identical filter across methods
+
+    print(f"{method_name:10s}  coverage={metrics['coverage']:.3f}  "
+          f"avg_set_size={metrics['avg_set_size']:.2f}  "
+          f"singleton_rate={metrics['singleton_rate']:.3f}  "
+          f"forced_rate={metrics['forced_rate']:.3f}")
+
+# ORIGINAL NOTEBOOK CELL 88 (zero-based)
+methods = ["collapsed", "radial", "strip"]
+method_display = {"collapsed": "Collapsed", "radial": "Radial", "strip": "Strip"}
+colors = {"collapsed": "mediumseagreen", "radial": "steelblue", "strip": "darkorange"}
+
+hosts_sorted_2fn = sorted(lysin_ta_hosts, key=lambda h: train_df["host"].value_counts().get(h, 0), reverse=True)
+
+data_list = []
+for method in methods:
+    for h in hosts_sorted_2fn:
+        sizes = [len(r["prediction_set"])
+                 for r, true_h in zip(results_by_method_2fn[method], eval_labels_2fn) if true_h == h]
+        for s in (sizes if sizes else [np.nan]):
+            data_list.append({"True Host": h, "Set Size": s, "Envelope Type": method_display[method]})
+
+df_all_sets_2fn = pd.DataFrame(data_list)
+
+order_ref_2fn = (df_all_sets_2fn[df_all_sets_2fn["Envelope Type"] == "Strip"]
+                  .groupby("True Host")["Set Size"].mean().sort_values(ascending=False).index)
+
+plt.figure(figsize=(14, max(8, len(hosts_sorted_2fn) * 0.6)))
+
+sns.boxplot(data=df_all_sets_2fn, x="Set Size", y="True Host", hue="Envelope Type",
+            order=order_ref_2fn, palette=[colors[m] for m in methods], fliersize=1, width=0.7)
+
+plt.axvline(x=1, color="red", linestyle="--", alpha=0.7, label="Threshold (Size = 1)")
+plt.title("Per-Host Prediction Set Size Distribution \u2014 lysin + tail_appendage only",
+          fontsize=14, fontweight="bold", pad=15)
+plt.xlabel("Prediction Set Size", fontsize=11)
+plt.ylabel("True Target Host Genus", fontsize=11)
+plt.grid(axis='x', linestyle=':', alpha=0.5)
+plt.legend(title="Envelope Type", loc="upper right")
+
+plt.tight_layout()
+plt.show()
+
+# ORIGINAL NOTEBOOK CELL 89 (zero-based)
+nan_mask = np.isnan(train_nc)  
+N, K = nan_mask.shape
+
+# How many (i,j) pairs across all points actually hit the new miss_j branch?
+hit_count, total_pairs = 0, 0
+for j in range(K):
+    for i in range(K):
+        if i == j:
+            continue
+        hit_count += ((~nan_mask[:, i]) & nan_mask[:, j]).sum()
+        total_pairs += N
+
+print(f"miss_j branch fires on {hit_count} / {total_pairs} pairs ({hit_count/total_pairs:.4%})")
+
+# Are NaNs all-or-nothing per phage, or scattered?
+nan_counts_per_row = nan_mask.sum(axis=1)
+print(pd.Series(nan_counts_per_row).value_counts().sort_index())
+
+# ORIGINAL NOTEBOOK CELL 90 (zero-based)
+rows = []
+for h in all_hosts:
+    h_idx = host_col_map[h]
+    if len(h_idx) < 2:
+        continue
+    mask_h = train_labels == h
+    S_h = train_nc[mask_h][:, h_idx]   # this host's phages, this host's own K_h columns only
+    nan_mask_h = np.isnan(S_h)
+    N_h, K_h = S_h.shape
+
+    hit_count, total_pairs = 0, 0
+    for j in range(K_h):
+        for i in range(K_h):
+            if i == j:
+                continue
+            hit_count += ((~nan_mask_h[:, i]) & nan_mask_h[:, j]).sum()
+            total_pairs += N_h
+
+    frac = hit_count / total_pairs if total_pairs else float("nan")
+    rows.append({"host": h, "N": N_h, "K": K_h, "miss_j_frac": frac})
+
+diag_df = pd.DataFrame(rows).sort_values("miss_j_frac", ascending=False)
+print(diag_df.to_string(index=False))
+
+# ORIGINAL NOTEBOOK CELL 91 (zero-based)
+# Check that the old and new tau score functions produce identical results on a variety of hosts
+def strip_tau_scores_OLD(S, bin_edges, limits, marginal_quantiles):
+    N, K = S.shape
+    bin_idx = get_bin_indices(S, bin_edges)
+    j_idx = np.arange(K)[None, :, None]
+    i_idx = np.arange(K)[None, None, :]
+    m_idx = bin_idx[:, :, None]
+    lims = limits[j_idx, i_idx, m_idx]
+    S_i = S[:, np.newaxis, :]
+    S_j = S[:, :, np.newaxis]
+    nan_i = np.isnan(S_i)
+    nan_j = np.isnan(S_j)
+    mq = marginal_quantiles[np.newaxis, np.newaxis, :]
+    ratio = np.zeros((N, K, K))
+    both_avail = (~nan_i) & (~nan_j)
+    miss_i = nan_i & (~nan_j)
+    ratio = np.where(both_avail, np.broadcast_to(S_i, (N, K, K)) / (lims + 1e-12), ratio)
+    ratio = np.where(miss_i, np.broadcast_to(mq, (N, K, K)) / (lims + 1e-12), ratio)
+    diag_mask = np.eye(K, dtype=bool)[np.newaxis, :, :]
+    ratio = np.where(diag_mask, 0.0, ratio)
+    return np.nanmax(ratio, axis=(1, 2))
+
+rows = []
+for h in all_hosts:
+    h_idx = host_col_map[h]
+    if len(h_idx) < 2:
+        continue
+    mask_h = train_labels == h
+    S1 = train_nc[mask_h][:, h_idx]
+    bin_edges, limits, marginal_quantiles = strip_shape_discovery(S1, alpha, NB)
+
+    tau_old = strip_tau_scores_OLD(S1, bin_edges, limits, marginal_quantiles)
+    tau_new = strip_tau_scores(S1, bin_edges, limits, marginal_quantiles)  # your fixed version, already in the notebook
+
+    changed = np.abs(tau_old - tau_new) > 1e-9
+    rows.append({
+        "host": h, "N": len(S1),
+        "frac_rows_tau_changed": changed.mean(),
+        "mean_abs_delta": np.abs(tau_old - tau_new).mean(),
+        "max_abs_delta": np.abs(tau_old - tau_new).max(),
+    })
+
+pd.DataFrame(rows).sort_values("frac_rows_tau_changed", ascending=False)
+
+# ORIGINAL NOTEBOOK CELL 93 (zero-based)
+def compute_t_hat_specificity(raw_tau_negative, alpha):
+    """
+    Sets t_hat at the lower alpha-quantile of the INCORRECT host score distribution.
+    Ensures P(False Host Admitted) <= alpha.
+    """
+    if len(raw_tau_negative) == 0:
+        return 0.0
+    return np.quantile(raw_tau_negative, alpha)
+
+
+def build_per_host_envelopes_specificity(train_nc, train_labels, all_hosts, score_cols, host_col_map, alpha,
+                                          method="collapsed", seed=13, **method_kwargs):
+    """
+    Builds host envelopes where t_hat is calibrated against every OTHER host's
+    phages scored on host h's columns at the alpha-quantile.
+    """
+    rng = np.random.default_rng(seed)
+    envelopes = {}
+
+    for h in all_hosts:
+        h_idx_full = host_col_map[h]
+        if len(h_idx_full) == 0:
+            continue
+
+        mask_h = train_labels == h
+        n_h = mask_h.sum()
+        if n_h < 3:
+            continue
+
+        train_nc_h_full = train_nc[mask_h][:, h_idx_full]
+        has_data = ~np.isnan(train_nc_h_full).all(axis=0)
+
+        if method == "strip":
+            h_idx = list(h_idx_full)
+            train_nc_h = train_nc_h_full
+        else:
+            h_idx = list(np.array(h_idx_full)[has_data])
+            train_nc_h = train_nc_h_full[:, has_data]
+
+        # Use ALL of host h's data for shape discovery (no positive split needed)
+        S1 = train_nc_h
+        dummy_S2 = S1[:1]
+        dummy_labels = np.array([h])
+
+        if method == "collapsed":
+            env = collapsed_build_envelope(S1, dummy_S2, dummy_labels, [h], alpha)
+        elif method == "radial":
+            env = radial_build_envelope(
+                S1, dummy_S2, dummy_labels, [h], alpha,
+                M=method_kwargs.get("M", M), rng=rng,
+                kappa=method_kwargs.get("kappa", 16.0),
+                neighbor_frac=method_kwargs.get("neighbor_frac", 0.2),
+                angular_bandwidth_deg=method_kwargs.get("angular_bandwidth_deg", 30.0),
+            )
+        else:
+            env = strip_build_envelope(
+                S1, dummy_S2, dummy_labels, [h], alpha,
+                number_of_bins=method_kwargs.get("NB", NB),
+                monotonic_window=method_kwargs.get("monotonic_window", 2),
+                min_samples=method_kwargs.get("min_samples", 3),
+            )
+
+        # --- Negative Calibration: Score every OTHER host's phages on host h's columns ---
+        mask_other = train_labels != h
+        neg_raw = train_nc[mask_other][:, h_idx]
+
+        if method == "collapsed":
+            env_unit = dict(env, t_hat=1.0)
+            raw_tau_neg = collapsed_tau(neg_raw, env_unit)
+        elif method == "radial":
+            env_unit = dict(env, t_hat=1.0)
+            raw_tau_neg = radial_tau(neg_raw, env_unit)
+        else:
+            raw_tau_neg = strip_tau_scores(neg_raw, env["bin_edges"], env["limits"], env["marginal_quantiles"])
+
+        # Override t_hat with specificity bound on false hosts
+        env["t_hat"] = compute_t_hat_specificity(raw_tau_neg, alpha)
+        envelopes[h] = {"envelope": env, "col_indices": h_idx}
+
+    print(f"Built {len(envelopes)} specificity-controlled host envelopes ({method})")
+    return envelopes
+
+# ORIGINAL NOTEBOOK CELL 94 (zero-based)
+def predict_host_specificity(test_raw, per_host_envelopes, active_hosts_list):
+    """
+    Predicts hosts without forcing singletons when prediction set is empty.
+    Empty sets signal high uncertainty / abstention.
+    """
+    N = len(test_raw)
+    n_h = len(active_hosts_list)
+
+    inside_matrix = np.zeros((N, n_h), dtype=bool)
+
+    for j, h in enumerate(active_hosts_list):
+        h_idx = per_host_envelopes[h]["col_indices"]
+        env_h = per_host_envelopes[h]["envelope"]
+
+        raw_h = test_raw[:, h_idx]
+        nc_h = np.where(np.isnan(raw_h), np.nan, 1.0 - raw_h)
+
+        inside_matrix[:, j] = is_in_region(nc_h, env_h)
+
+    results = []
+    for i in range(N):
+        pred_set = [active_hosts_list[j] for j in range(n_h) if inside_matrix[i, j]]
+        results.append({
+            "prediction_set": pred_set,
+            "is_empty": len(pred_set) == 0,
+            "is_singleton": len(pred_set) == 1,
+            "is_multi": len(pred_set) > 1,
+        })
+    return results
+
+
+def evaluate_specificity(results, true_labels):
+    """
+    Tracks Precision, Coverage, and Abstention (Empty Set) Rates.
+    """
+    n = len(results)
+    n_empty = sum(1 for r in results if r["is_empty"])
+    n_non_empty = n - n_empty
+    
+    correct_all = sum(true_labels[i] in r["prediction_set"] for i, r in enumerate(results))
+    correct_non_empty = sum(
+        1 for i, r in enumerate(results)
+        if not r["is_empty"] and true_labels[i] in r["prediction_set"]
+    )
+    
+    precision = (correct_non_empty / n_non_empty) if n_non_empty > 0 else 0.0
+    avg_size = np.mean([len(r["prediction_set"]) for r in results])
+
+    return {
+        "overall_coverage": correct_all / n,
+        "empty_rate": n_empty / n,
+        "non_empty_rate": n_non_empty / n,
+        "precision": precision,
+        "avg_set_size": avg_size
+    }
+
+# ORIGINAL NOTEBOOK CELL 95 (zero-based)
+print("\n" + "="*60)
+print(" RUNNING SPECIFICITY-CONTROLLED (IMPOSTOR BOUNDED) EXPERIMENT ")
+print("="*60)
+
+methods = ["collapsed", "radial", "strip"]
+spec_results_by_method = {}
+spec_metrics_by_method = {}
+
+for method in methods:
+    # Build envelopes using impostor scores
+    if method == "radial":
+        envs_spec = build_per_host_envelopes_specificity(
+            train_nc, train_labels, all_hosts, score_cols, host_col_map, alpha,
+            method="radial", seed=13, M=best_M, kappa=best_kappa
+        )
+    elif method == "strip":
+        envs_spec = build_per_host_envelopes_specificity(
+            train_nc, train_labels, all_hosts, score_cols, host_col_map, alpha,
+            method="strip", NB=best_NB
+        )
+    else:
+        envs_spec = build_per_host_envelopes_specificity(
+            train_nc, train_labels, all_hosts, score_cols, host_col_map, alpha,
+            method="collapsed", seed=13
+        )
+
+    # Predict on test split with Gram-type candidate filtering
+    results = []
+    for i, acc in enumerate(test_df.index):
+        allowed = candidate_hosts_for(acc)
+        active = {h: envs_spec[h] for h in allowed if h in envs_spec}
+        if not active:
+            active = envs_spec
+
+        res = predict_host_specificity(test_raw[i:i+1], active, list(active.keys()))[0]
+        results.append(res)
+
+    # Evaluate
+    metrics = evaluate_specificity(results, test_labels)
+    spec_results_by_method[method] = results
+    spec_metrics_by_method[method] = metrics
+
+# Print Summary
+summary_rows = []
+for m_name in methods:
+    m = spec_metrics_by_method[m_name]
+    summary_rows.append({
+        "Method": m_name.capitalize(),
+        "Overall Coverage": f"{m['overall_coverage']:.2%}",
+        "Abstention (Empty) %": f"{m['empty_rate']:.2%}",
+        "Prediction Yield %": f"{m['non_empty_rate']:.2%}",
+        "Precision (Non-Empty)": f"{m['precision']:.2%}",
+        "Avg Set Size": f"{m['avg_set_size']:.2f}"
+    })
+
+print("\n=== SPECIFICITY-CONTROLLED TEST RESULTS ===")
+print(pd.DataFrame(summary_rows).to_string(index=False))
+
+# ORIGINAL NOTEBOOK CELL 96 (zero-based)
+for method in methods:
+    results = spec_results_by_method[method]
+
+    rows = []
+    for i, acc in enumerate(test_df.index):
+        r = results[i]
+        if r["is_empty"]:
+            continue  # Abstentions are omitted from this non-empty prediction listing.
+
+        true_h = test_labels[i]
+        rows.append({"accession": acc, "true_host": true_h, "predicted_set": r["prediction_set"],
+                     "set_size": len(r["prediction_set"]), "correct": true_h in r["prediction_set"],})
+
+    df_nonempty = pd.DataFrame(rows)
+
+    print(f"\n{'='*60}")
+    print(f" {method.upper()} — non-empty predictions: {len(df_nonempty)} / {len(test_df)} test phages")
+    print(f"{'='*60}")
+    if len(df_nonempty) > 0:
+        print(df_nonempty.to_string(index=False))
+    else:
+        print("  (none — every test phage abstained under this method)")
+
+    df_nonempty.to_csv(f"specificity_nonempty_{method}.csv", index=False)
+
+# ORIGINAL NOTEBOOK CELL 97 (zero-based)
+# Per-host breakdown of where non-empty predictions actually landed
+for method in methods:
+    results = spec_results_by_method[method]
+    rows = []
+    for i, acc in enumerate(test_df.index):
+        r = results[i]
+        if r["is_empty"]:
+            continue
+        true_h = test_labels[i]
+    
+        for pred_h in r["prediction_set"]:
+            rows.append({"predicted_host": pred_h, "true_host": true_h, "correct": true_h == pred_h})
+
+    df = pd.DataFrame(rows)
+    print(f"\n=== {method.upper()} — per predicted-host breakdown ===")
+    if len(df) > 0:
+        summary = df.groupby("predicted_host").agg(
+            n_predictions=("correct", "size"),
+            n_correct=("correct", "sum")
+        )
+        summary["precision"] = (summary["n_correct"] / summary["n_predictions"]).round(3)
+        print(summary.sort_values("n_predictions", ascending=False).to_string())
+    else:
+        print("  (no non-empty predictions for any host)")
+
+# ORIGINAL NOTEBOOK CELL 99 (zero-based)
+# Ensure export directory exists
+os.makedirs("Plots", exist_ok=True)
+
+# Setup shared annotations across all methods (Gram Type & ALL Host Colors)
+gram_color_map = {"gram-neg": "#2980b9", "gram-pos": "#d35400"}
+row_gram_colors = test_df["host_type"].map(gram_color_map)
+
+# Generate distinct colors for ALL candidate hosts
+all_unique_hosts = sorted(list(set(all_hosts)))
+palette = sns.color_palette("husl", len(all_unique_hosts))
+host_color_map = {h: palette[i] for i, h in enumerate(all_unique_hosts)}
+
+# Top 10 hosts for the summary legend
+top_hosts = test_df["host"].value_counts().head(10).index.tolist()
+
+row_host_colors = test_df["host"].map(host_color_map)
+
+row_colors_df = pd.DataFrame(
+    {"True Host": row_host_colors, "Gram type": row_gram_colors},
+    index=test_df.index,
+)
+
+# Colormap for Confusion Matrix:
+# 0: TN (White), 1: TP (Green), 2: FP (Black), 3: FN (Red)
+cm_palette = ["#ffffff", "#2ecc71", "#1e272e", "#e74c3c"]
+cm_cmap = mcolors.ListedColormap(cm_palette)
+cm_bounds = [-0.5, 0.5, 1.5, 2.5, 3.5]
+cm_norm = mcolors.BoundaryNorm(cm_bounds, cm_cmap.N)
+
+# Iterate through all three evaluated methods
+methods_to_plot = ["collapsed", "radial", "strip"]
+
+for method_name in methods_to_plot:
+    print(f"Generating evaluation clustermap for method: {method_name}...")
+    predictions = results_by_method[method_name]
+
+    # Build evaluation matrix
+    eval_matrix = pd.DataFrame(0, index=test_df.index, columns=all_hosts, dtype=int)
+    for i, acc in enumerate(test_df.index):
+        pred_hosts = set(predictions[i]["prediction_set"])
+        true_host = test_df.loc[acc, "host"]
+
+        for h in all_hosts:
+            is_pred = h in pred_hosts
+            is_true = h == true_host
+
+            if is_true and is_pred:
+                eval_matrix.loc[acc, h] = 1  # TP
+            elif not is_true and is_pred:
+                eval_matrix.loc[acc, h] = 2  # FP
+            elif is_true and not is_pred:
+                eval_matrix.loc[acc, h] = 3  # FN
+            else:
+                eval_matrix.loc[acc, h] = 0  # TN
+
+    # REMOVE default index name so Seaborn doesn't print "accession" on the right
+    eval_matrix.index.name = None
+    eval_matrix.columns.name = None
+
+    display_title = (
+        "Collapsed 1D"
+        if method_name == "collapsed"
+        else f"{method_name.capitalize()} Envelope"
+    )
+
+    sns.set_theme(style="white")
+    
+    # Exact A4 Portrait Dimensions (8.27 x 11.69 inches)
+    g = sns.clustermap(eval_matrix, method="average", metric="jaccard", row_colors=row_colors_df,
+                       cmap=cm_cmap, norm=cm_norm, figsize=(8.27, 11.69), dendrogram_ratio=(0.08, 0.04),
+                       colors_ratio=0.025, cbar_pos=None, yticklabels=False, xticklabels=True, rasterized=True,)
+
+    # Colorize only top X-axis host labels, default others to grey/black
+    g.ax_heatmap.set_xticklabels(g.ax_heatmap.get_xticklabels(), rotation=90, fontsize=6.5, fontfamily="sans-serif",
+    )
+    for tick_label in g.ax_heatmap.get_xticklabels():
+        host_name = tick_label.get_text()
+        if host_name in top_hosts:
+            tick_label.set_color(host_color_map.get(host_name, "#2c3e50"))
+            tick_label.set_fontweight("bold")
+        else:
+            tick_label.set_color("#2c3e50")
+            tick_label.set_fontweight("normal")
+
+    # X-axis Label
+    g.ax_heatmap.set_xlabel(f"Candidate Hosts (N = {len(all_hosts)})", fontsize=9.5, 
+                            fontweight="bold", labelpad=8,)
+        
+    
+    # Perfectly positioned Y-axis label on the far left outside the dendrogram
+    g.figure.text(0.008, 0.50, f"Evaluated Test Phages (N = {len(test_df):,})", va="center", ha="left", 
+                  rotation="vertical", fontsize=9.5, fontweight="bold")
+
+    # Compress heatmap width within A4 canvas to create free right margin
+    g.figure.subplots_adjust(left=0.08, right=0.75, top=0.94, bottom=0.15)
+
+    # Legends Placed Outside in the Right Margin
+    perf_patches = [
+        mpatches.Patch(facecolor="#2ecc71", edgecolor="black", label="True Positive (TP)"),
+        mpatches.Patch(facecolor="#1e272e", edgecolor="black", label="False Positive (FP)"),
+        mpatches.Patch(facecolor="#e74c3c", edgecolor="black", label="False Negative (FN)"),
+        mpatches.Patch(facecolor="#ffffff", edgecolor="black", label="True Negative (TN)"),
+    ]
+    leg1 = g.figure.legend(handles=perf_patches, title="Prediction Outcome", loc="upper left",
+                           bbox_to_anchor=(0.77, 0.90), frameon=True, facecolor="white", 
+                           edgecolor="#bdc3c7", fontsize=6.5,title_fontsize=7.5,)        
+        
+    gram_patches = [mpatches.Patch(color="#2980b9", label="Gram-Negative"),
+                    mpatches.Patch(color="#d35400", label="Gram-Positive"),]
+    
+    leg2 = g.figure.legend(handles=gram_patches, title="Gram Type", loc="upper left", bbox_to_anchor=(0.77, 0.77),
+                           frameon=True, facecolor="white", edgecolor="#bdc3c7", fontsize=6.5, title_fontsize=7.5,)
+        
+        
+    host_patches = [mpatches.Patch(color=host_color_map[h], label=h) for h in top_hosts]
+
+    host_patches.append(mpatches.Patch(facecolor="none", edgecolor="none", label="... (all colored below)"))
+    leg3 = g.figure.legend(handles=host_patches, title="Top 10 Hosts", loc="upper left", bbox_to_anchor=(0.77, 0.67),
+                           frameon=True, facecolor="white", edgecolor="#bdc3c7", fontsize=6, title_fontsize=7,)     
+
+
+    # Super Title
+    g.figure.suptitle(f"Clustermap of Phage-Host Predictions ({display_title})", fontsize=14, fontweight="bold", y=0.98,)
+
+
+    plt.savefig(f"Plots/phage_host_eval_clustermap_{method_name}.pdf",dpi=300,)
+    plt.savefig(f"Plots/phage_host_eval_clustermap_{method_name}.png",dpi=300,)
+    plt.show()
+
+# ORIGINAL NOTEBOOK CELL 101 (zero-based)
+host_func_means = {}
+
+for h in all_hosts:
+    h_cols = [c for c in score_cols if c.split("_")[0] == h]
+    mask_h = train_df["host"] == h
+    if mask_h.sum() < 3 or len(h_cols) == 0:
+        continue
+    
+    # Calculate mean score for each function on positive phages
+    mean_scores = np.nanmean(train_df.loc[mask_h, h_cols].values, axis=0)
+    func_names = [c.replace(f"{h}_", "", 1) for c in h_cols]
+    
+    ranked_series = pd.Series(mean_scores, index=func_names).sort_values(ascending=False)
+    host_func_means[h] = ranked_series
+
+# Inspect top 3 functions for sample hosts
+top_funcs_df = pd.DataFrame({h: s.head(3).index.tolist() for h, s in host_func_means.items()}).T
+top_funcs_df.columns = ["Top 1 Function", "Top 2 Function", "Top 3 Function"]
+print("=== SAMPLE: Top Predictive Functions Across Hosts ===")
+print(top_funcs_df.head(50))
+
+# ORIGINAL NOTEBOOK CELL 103 (zero-based)
+# Count how often each function appears in the top-5 per host
+top_k_ranks = []
+for h, series in host_func_means.items():
+    top_k_ranks.extend(series.head(5).index.tolist())
+
+core_function_counts = pd.Series(top_k_ranks).value_counts()
+
+print("\n=== TOP UNIVERSAL / CORE FUNCTIONS (Frequency in Top-5 per Host) ===")
+print(core_function_counts.head(10))
+
+# Define Core Set as top N most recurring functions
+TOP_N_CORE = 7
+core_functions = core_function_counts.head(TOP_N_CORE).index.tolist()
+print(f"\nIdentified Core Set ({TOP_N_CORE} functions): {core_functions}")
+
+# ORIGINAL NOTEBOOK CELL 105 (zero-based)
+core_score_cols = [
+    c for c in score_cols 
+    if any(c.endswith(f"_{fn}") or c.replace(f"{c.split('_')[0]}_", "", 1) == fn for fn in core_functions)
+]
+
+core_host_col_map = {
+    h: [i for i, c in enumerate(core_score_cols) if c.split("_")[0] == h] 
+    for h in all_hosts
+}
+
+# Subsample raw matrices
+train_raw_core = train_df[core_score_cols].values
+test_raw_core = test_df[core_score_cols].values
+train_nc_core = raw_to_nc(train_raw_core)
+
+# Rebuild Collapsed 1D Envelopes on Core Set Only
+core_envs_c = build_per_host_envelopes(
+    train_nc_core, train_labels, all_hosts, core_score_cols, 
+    core_host_col_map, alpha, method="collapsed", seed=13
+)
+
+# Test evaluation with Gram-type filtering
+core_results = []
+for i, acc in enumerate(test_df.index):
+    allowed = candidate_hosts_for(acc)
+    active = {h: core_envs_c[h] for h in allowed if h in core_envs_c}
+    if not active:
+        active = core_envs_c
+    core_results.append(predict_host(test_raw_core[i:i+1], active, list(active.keys()))[0])
+
+core_metrics = evaluate_multiclass(core_results, test_labels, all_hosts, alpha)
+
+# ORIGINAL NOTEBOOK CELL 107 (zero-based)
+comp_summary = pd.DataFrame([
+    {
+        "Feature Set": f"Full Feature Set ({len(score_cols)} cols)",
+        "Coverage": f"{collapsed_metrics['coverage']:.3f}",
+        "Avg Set Size": f"{collapsed_metrics['avg_set_size']:.2f}",
+        "Singleton Acc": f"{collapsed_metrics['singleton_accuracy']:.3f}"
+    },
+    {
+        "Feature Set": f"Core Set Only ({len(core_score_cols)} cols, {TOP_N_CORE} functions)",
+        "Coverage": f"{core_metrics['coverage']:.3f}",
+        "Avg Set Size": f"{core_metrics['avg_set_size']:.2f}",
+        "Singleton Acc": f"{core_metrics['singleton_accuracy']:.3f}"
+    }
+])
+
+print("\n=== SUFFICIENCY EVALUATION: Full vs. Core Function Set ===")
+print(comp_summary.to_string(index=False))
+
+
+fig, ax = plt.subplots(1, 2, figsize=(16, 5))
+
+# Plot 1: Recurrence frequency of functions across hosts
+sns.barplot(x=core_function_counts.head(10).values, y=core_function_counts.head(10).index, ax=ax[0], palette="viridis")
+ax[0].set_title("Function Recurrence in Top-5 Predictive Signals Across Hosts")
+ax[0].set_xlabel("Number of Hosts")
+ax[0].set_ylabel("Function")
+
+# Plot 2: Full vs Core Set Performance Comparison
+bar_metrics = ["Coverage", "Avg Set Size", "Singleton Acc"]
+full_vals = [collapsed_metrics['coverage'], collapsed_metrics['avg_set_size'], collapsed_metrics['singleton_accuracy']]
+core_vals = [core_metrics['coverage'], core_metrics['avg_set_size'], core_metrics['singleton_accuracy']]
+
+x = np.arange(len(bar_metrics))
+width = 0.35
+
+ax[1].bar(x - width/2, full_vals, width, label='Full Feature Set', color='steelblue')
+ax[1].bar(x + width/2, core_vals, width, label=f'Core Set ({TOP_N_CORE} funcs)', color='coral')
+ax[1].set_xticks(x)
+ax[1].set_xticklabels(bar_metrics)
+ax[1].set_title("Impact of Restricting to Core Functional Set")
+ax[1].legend()
+
+plt.tight_layout()
+plt.show()
+
+# ORIGINAL NOTEBOOK CELL 109 (zero-based)
+# BUILD PER-HOST ENVELOPES ON CORE FUNCTION SET (356 COLS)
+print("\n" + "="*60)
+print(" BUILDING RADIAL & STRIP ENVELOPES ON CORE FUNCTION SUBSET ")
+print("="*60)
+
+# Collapsed 1D Envelope
+core_envs_c = build_per_host_envelopes(
+    train_nc_core, train_labels, all_hosts, core_score_cols, 
+    core_host_col_map, alpha=alpha, method="collapsed", seed=13
+)
+
+# Radial Envelope (using validation-tuned hyperparameters)
+core_envs_r = build_per_host_envelopes(
+    train_nc_core, train_labels, all_hosts, core_score_cols, 
+    core_host_col_map, alpha=alpha, method="radial", 
+    M=best_M, kappa=best_kappa, seed=13
+)
+
+core_envs_s = build_per_host_envelopes(
+    train_nc_core, train_labels, all_hosts, core_score_cols, 
+    core_host_col_map, alpha=0.09, method="strip", 
+    NB=best_NB, seed=13
+)
+
+core_methods_dict = {
+    "Collapsed 1D": (collapsed_metrics, core_envs_c),
+    "Radial":       (radial_metrics,    core_envs_r),
+    "Strip":        (strip_metrics,     core_envs_s)
+}
+
+# ORIGINAL NOTEBOOK CELL 110 (zero-based)
+# TEST EVALUATION  WITH GRAM FILTERING
+
+core_all_metrics = {}
+table_rows = []
+
+for name, (full_metric, envs) in core_methods_dict.items():
+    res = []
+    for i, acc in enumerate(test_df.index):
+        allowed = candidate_hosts_for(acc)
+        active = {h: envs[h] for h in allowed if h in envs}
+        if not active:
+            active = envs
+        res.append(predict_host(test_raw_core[i:i+1], active, list(active.keys()))[0])
+        
+    m = evaluate_multiclass(res, test_labels, all_hosts, alpha)
+    core_all_metrics[name] = m
+    
+    # Summary Rows (Coverage and Average Set Size)
+    table_rows.append({
+        "Method": name,
+        "Configuration": f"Full ({len(score_cols)} cols)",
+        "Dimension": len(score_cols),
+        "Coverage": f"{full_metric['coverage']:.3f}",
+        "Avg Set Size": f"{full_metric['avg_set_size']:.2f}"
+    })
+    table_rows.append({
+        "Method": name,
+        "Configuration": f"Core Set ({len(core_score_cols)} cols, {TOP_N_CORE} funcs)",
+        "Dimension": len(core_score_cols),
+        "Coverage": f"{m['coverage']:.3f}",
+        "Avg Set Size": f"{m['avg_set_size']:.2f}"
+    })
+
+comp_df_clean = pd.DataFrame(table_rows)
+print("\n=== CONFORMAL SUFFICIENCY EVALUATION: FULL VS. CORE SET ===")
+print(comp_df_clean.to_string(index=False))
+
+# ORIGINAL NOTEBOOK CELL 111 (zero-based)
+# PLOT
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5))
+methods = ["Collapsed 1D", "Radial", "Strip"]
+x = np.arange(len(methods))
+width = 0.32
+
+# Extract dynamically calculated metrics
+full_cov  = [core_methods_dict[m][0]['coverage'] for m in methods]
+core_cov  = [core_all_metrics[m]['coverage'] for m in methods]
+
+full_size = [core_methods_dict[m][0]['avg_set_size'] for m in methods]
+core_size = [core_all_metrics[m]['avg_set_size'] for m in methods]
+
+# --- Subplot 1: Empirical Coverage ---
+bars_full_cov = axes[0].bar(x - width/2, full_cov, width, label=f'Full Set ({len(score_cols)} cols)', color='steelblue', alpha=0.9)
+bars_core_cov = axes[0].bar(x + width/2, core_cov, width, label=f'Core Set ({len(core_score_cols)} cols)', color='darkorange', alpha=0.9)
+
+axes[0].axhline(1 - alpha, color='crimson', linestyle='--', linewidth=1.5, label=f'Target Coverage ({1-alpha:.2f})')
+axes[0].set_xticks(x)
+axes[0].set_xticklabels(methods, fontsize=11, fontweight='bold')
+axes[0].set_ylim(0.80, 1.0)
+axes[0].set_ylabel("Coverage", fontsize=12)
+axes[0].set_title("Coverage: Full vs. Core Set", fontsize=13, fontweight='bold')
+axes[0].legend(loc='lower left', frameon=True)
+
+# Add data labels
+for bar in bars_full_cov + bars_core_cov:
+    yval = bar.get_height()
+    axes[0].text(bar.get_x() + bar.get_width()/2, yval + 0.003, f"{yval:.3f}", ha='center', va='bottom', fontsize=9, fontweight='bold')
+
+# --- Subplot 2: Average Prediction Set Size ---
+bars_full_sz = axes[1].bar(x - width/2, full_size, width, label=f'Full Set ({len(score_cols)} cols)', color='steelblue', alpha=0.9)
+bars_core_sz = axes[1].bar(x + width/2, core_size, width, label=f'Core Set ({len(core_score_cols)} cols)', color='darkorange', alpha=0.9)
+
+axes[1].set_xticks(x)
+axes[1].set_xticklabels(methods, fontsize=11, fontweight='bold')
+axes[1].set_ylim(0, 18)
+axes[1].set_ylabel("Average Prediction Set Size", fontsize=12)
+axes[1].set_title("Prediction Set Size: Full vs. Core Set", fontsize=13, fontweight='bold')
+axes[1].legend(loc='upper right', frameon=True)
+
+# Add data labels
+for bar in bars_full_sz + bars_core_sz:
+    yval = bar.get_height()
+    axes[1].text(bar.get_x() + bar.get_width()/2, yval + 0.25, f"{yval:.2f}", ha='center', va='bottom', fontsize=9, fontweight='bold')
+
+plt.tight_layout()
+plt.show()
