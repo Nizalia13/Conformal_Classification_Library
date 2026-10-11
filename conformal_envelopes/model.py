@@ -199,9 +199,39 @@ class ConformalSetModel:
             # raw scores --> transform scores --> NC scores --> all envelopes
             nc_class = transform_scores(raw_class, self.score_direction,)
  
-            # checks which columns are not entirely NaN for this class.
+            # # checks which columns are not entirely NaN for this class.
+            # if self.method in {"collapsed", "radial"}:
+            #     usable = ~np.isnan(nc_class).all(axis=0)
+            #     used_columns = list(np.asarray(columns)[usable])
+            #     nc_used = nc_class[:, usable]
+            # else:
+            #     used_columns = list(columns)
+            #     nc_used = nc_class
+
+            # # Ensure at least one usable dimension
+            # if len(used_columns) == 0:
+            #     raise ValueError(f"Class {cls!r} has no usable score dimensions.")
+
+            # permutation = master_rng.permutation(n_class)
+            # n_shape = int(self.shape_fraction * n_class)
+            # n_shape = min(max(n_shape, 1), n_class - 1)
+
+            # idx_s1 = permutation[:n_shape]
+            # idx_s2 = permutation[n_shape:]
+             
+
+                        # Split first, so that column selection below uses S1 only.
+            permutation = master_rng.permutation(n_class)
+            n_shape = int(self.shape_fraction * n_class)
+            n_shape = min(max(n_shape, 1), n_class - 1)
+
+            idx_s1 = permutation[:n_shape]
+            idx_s2 = permutation[n_shape:]
+
+            # Keep columns observed at least once in S1 (shape-discovery data only),
+            # so the scoring rule does not depend on calibration data S2.
             if self.method in {"collapsed", "radial"}:
-                usable = ~np.isnan(nc_class).all(axis=0)
+                usable = ~np.isnan(nc_class[idx_s1]).all(axis=0)
                 used_columns = list(np.asarray(columns)[usable])
                 nc_used = nc_class[:, usable]
             else:
@@ -211,14 +241,8 @@ class ConformalSetModel:
             # Ensure at least one usable dimension
             if len(used_columns) == 0:
                 raise ValueError(f"Class {cls!r} has no usable score dimensions.")
-
-            permutation = master_rng.permutation(n_class)
-            n_shape = int(self.shape_fraction * n_class)
-            n_shape = min(max(n_shape, 1), n_class - 1)
-
-            idx_s1 = permutation[:n_shape]
-            idx_s2 = permutation[n_shape:]
-
+            
+             
             # shape/calibration split.
             S1 = nc_used[idx_s1]
             S2 = nc_used[idx_s2]
