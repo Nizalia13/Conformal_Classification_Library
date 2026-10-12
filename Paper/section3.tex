@@ -1,0 +1,132 @@
+\section{Envelope constructions}\label{sec:constructions}
+
+Each of the three envelope construction methods follows the same two stage calibration procedure: the shape-discovery set $S_1$ is 
+used to determine the geometric shape of the envelope, then the size scaling set $S_2$ is used to determine the scaling factor 
+$\hat t$. Each construction assigns a scalar score, $\tau(v,m)$, to a score vector $v$ with observed set $m$. A candidate class is 
+then included in the prediction set when $\tau(v,m)\le\hat t$, where $\hat t$ is calculated on $S_2$ as in Section~\ref{sec:setup}. 
+For both the collapsed and radial methods, we define $\tau(v)=\inf\{t>0: v\in t\cdot E\}$ using an envelope $E$ which is star shaped 
+with respect to the origin and give a closed form expression for it. The strip method works in the same way, except that the 
+single scaling factor $\hat t$ multiplies the limits of the staircase rather than dilating the whole region, so $\tau$ is defined 
+directly as a maximum of ratios.
+
+We first fix a class $h$ and drop the index $h$. $K$ denotes the number of coordinates that remain after removing the coordinates 
+that are missing for every sample of $S_1$. For a vector $v\in[0,\infty)^K$ and observed set $m\subseteq\{1,\dots,K\}$, we write 
+$v_k$, $k\in m$, for just its observed entries. We use $\varepsilon=10^{-12}$ to prevent division by zero, and $Q_p(\cdot)$ denotes 
+the empirical $p$-quantile.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\paragraph{Collapsed envelope.} The basic envelope construction simply collapses the $K$-dimensional score vector to a scalar score 
+by taking the mean over the observed coordinates, and calibrates a single quantile on $S_1$:
+\begin{equation}\label{eq:collapsed}
+\bar v=\frac{1}{|m|}\sum_{j\in m}v_j,\qquad \tilde q=Q_{1-\alpha}\bigl(\{\bar v_i\}_{i\in S_1}\bigr),\qquad
+\tau(v,m)=\frac{\bar v}{\tilde q},\qquad
+E=\{v:\bar v\le\tilde q\}.
+\end{equation}
+
+This method discards the geometric information that the $K$ coordinates provide. Two vectors with the same mean are treated 
+identically whatever the distribution of their coordinates is, so a single coordinate with strong evidence (a very small $v_k$) is 
+averaged together with all the others. The accepted region is a halfspace in the observed coordinates. It serves as a mean score baseline 
+for the multidimensional constructions below. After calibration on $S_2$, a vector is accepted when $\bar v/\tilde q\le\hat t$, 
+which is the same as $\bar v\le\hat t\,\tilde q$. Here $\hat t$ is the $k$-th smallest value of $\bar v_i/\tilde q$ over $S_2$, 
+so $\hat t\,\tilde q$ is just the $k$-th smallest value of $\bar v_i$ over $S_2$. 
+% This means that $\tilde q$ does not change the prediction set, and for this method $S_1$ is only 
+% used to decide which coordinates are kept.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\paragraph{Radial envelope.} Let $u_1,\dots,u_M$ be unit vectors in the nonnegative orthant ($M=250$ by default), obtained by 
+normalizing the absolute value of Gaussian vectors with a fixed random seed. For $s\in S_1$ with observed set $m_s$, let $\|s\|$ 
+be the Euclidean norm of its observed entries and $\hat s$ its direction (zero on missing entries). For each $r$, let 
+$N_r=\{s\in S_1:\langle \hat s,u_r\rangle\ge\cos\theta\}$ with $\theta=30^\circ$, and set
+\begin{equation}\label{eq:radii}
+\rho_r=Q_{1-\alpha}\bigl(\{\|s\|:s\in N_r\}\bigr)
+\end{equation}
+when $|N_r|\ge n_{\min}=\max\{10,\lfloor 0.2\,|S_1|\rfloor\}$. If $0<|N_r|<n_{\min}$, $\rho_r$ is the convex combination of the 
+local quantile and the marginal quantile $Q_{1-\alpha}(\{\|s\|:s\in S_1\})$ with weight $|N_r|/n_{\min}$ on the local one, and if 
+$N_r=\emptyset$ it is the marginal quantile. A smoothed radius in direction $a$ is
+\begin{equation}\label{eq:smooth}
+R(a)=\sum_{r=1}^{M}w_r(a)\,\rho_r,\qquad
+w_r(a)=\frac{\exp(\kappa\langle a,u_r\rangle)}{\sum_{r'}\exp(\kappa\langle a,u_{r'}\rangle)},
+\end{equation}
+with $\kappa=8$. Evaluating it at the anchors $a_t\in\{u_1,\dots,u_M,e_1,\dots,e_d\}$ (the $e_j$ are the coordinate axes) gives 
+boundary points $b_t=R(a_t)\,a_t$, and the score is
+\begin{equation}\label{eq:radial}
+A^{\mathrm{rad}}(v,m)=\min_{t}\;\max_{j\in m}\;\frac{v_j}{b_{tj}+\varepsilon}.
+\end{equation}
+Since $A^{\mathrm{rad}}(v,m)\le q$ means that $v_j\le q\,b_{tj}$ for all observed $j$ for some $t$, the accepted region is a union 
+of boxes with a corner at $q\,b_t$, restricted to the observed coordinates.
+
+
+
+\paragraph{Radial envelope.} The radial envelope method retains the directional structure of the scores by calibrating a boundary radius as a function of direction on the unit sphere, restricted to the positive orthant since all nonconformity scores are nonnegative. We draw $M$ directions $\{u_r\}_{r=1}^M$ uniformly over the orthant by sampling $g_r\sim|\mathcal N(0,I_K)|$ coordinate-wise (with a fixed random seed) and normalizing, $u_r=g_r/\|g_r\|$. For each $v_i\in S_1$, over the observed coordinates only, we compute its magnitude $\|v_i\|$ and its unit direction $d_i=v_i/\|v_i\|$ (with zeros on the missing coordinates). For each direction $u_r$, we collect the $n_r$ points of $S_1$ within an angular sector of half-width $\delta=30^\circ$, that is, those with $d_i\cdot u_r\ge\cos\delta$. The directional radius $\tilde q_r$ is then calibrated as
+\begin{equation}\label{eq:radii}
+\tilde q_r=\begin{cases}
+Q_{1-\alpha}\bigl(\{\|v_i\|:d_i\cdot u_r\ge\cos\delta\}\bigr) & \text{if } n_r\ge n_{\min},\\[1ex]
+w_r\,Q_{1-\alpha}\bigl(\{\|v_i\|:d_i\cdot u_r\ge\cos\delta\}\bigr)+(1-w_r)\,\tilde q_{\mathrm{marg}} & \text{if } 0<n_r<n_{\min},\\[1ex]
+\tilde q_{\mathrm{marg}} & \text{if } n_r=0,
+\end{cases}
+\end{equation}
+where $n_{\min}=\max\{10,\lfloor 0.2\,|S_1|\rfloor\}$ is a minimum support threshold, $w_r=n_r/n_{\min}$, and $\tilde q_{\mathrm{marg}}=Q_{1-\alpha}(\{\|v_i\|\}_{i\in S_1})$ is the marginal fallback radius. This blend avoids a hard cutoff between sufficient and insufficient local support. To get a smooth boundary, we compute the radius in an arbitrary direction $d$ as a weighted average of all $M$ calibrated radii,
+\begin{equation}\label{eq:smooth}
+R(d)=\sum_{r=1}^{M}\omega_r(d)\,\tilde q_r,\qquad
+\omega_r(d)=\frac{\exp(\kappa\,d\cdot u_r)}{\sum_{r'=1}^{M}\exp(\kappa\,d\cdot u_{r'})},
+\end{equation}
+where $\kappa>0$ controls the angular smoothness (a larger $\kappa$ gets closer to nearest-direction assignment). We evaluate $R$ at the anchor directions $a_t\in\{u_1,\dots,u_M,e_1,\dots,e_K\}$, where the $e_j$ are the coordinate axes, which gives the boundary points $b_t=R(a_t)\,a_t$. The envelope $E$ is the union of the boxes $\{v:0\le v\le b_t\}$ over all $t$, and the scaling function has the closed form
+\begin{equation}\label{eq:radial}
+\tau(v,m)=\min_{t}\;\max_{j\in m}\;\frac{v_j}{b_{tj}+\varepsilon},
+\end{equation}
+which is $\inf\{t>0:v\in t\cdot E\}$ computed on the observed coordinates. We use $M=250$ and $\kappa=8$ by default.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\paragraph{Strip envelope.} For every coordinate $j$, the interval from the smallest to the largest observed $S_1$ value is cut into $B=8$ bins of equal width, and $b_j(x)\in\{1,\dots,B\}$ is the bin of $x$ (values outside the interval go to the end bins). Let $\alpha'=\alpha/d$. For each ordered pair $j\ne i$ and each bin $b$, the limit
+\begin{equation}\label{eq:limits}
+L_{ji,b}=Q_{1-\alpha'}\bigl(\{s_i:s\in S_1,\ s_j,s_i\text{ observed},\ b_j(s_j)=b\}\bigr)
+\end{equation}
+is the quantile of coordinate $i$ among $S_1$ samples whose coordinate $j$ falls in bin $b$. Bins with fewer than $3$ samples are blended with the marginal quantile of coordinate $i$ in the same way as in the radial case. The limits are then made nonincreasing in the bin index,
+\begin{equation}\label{eq:monotone}
+\tilde L_{ji,b}=\max_{b'\ge b}L_{ji,b'} ,
+\end{equation}
+and the score is
+\begin{equation}\label{eq:strip}
+A^{\mathrm{strip}}(v,m)=
+\begin{cases}
+\displaystyle\max_{\substack{j,i\in m\\ j\ne i}}\ \dfrac{v_i}{\tilde L_{ji,b_j(v_j)}+\varepsilon}, & |m|\ge 2,\\[3ex]
+\dfrac{v_j}{q_j+\varepsilon}, & m=\{j\},
+\end{cases}
+\end{equation}
+where $q_j=Q_{1-\alpha'}(\{s_j:s\in S_1\ \text{observed}\})$. The level $\alpha/d$ is a Bonferroni-type choice for the $d$ coordinates. It affects the shape of the score only: the coverage of the final set is set by $\widehat q$. Because the bin is chosen from the unscaled value $v_j$, the thresholded regions are score sublevel sets and not dilations of one fixed region.
+
+\paragraph{Properties.} Table~\ref{tab:comparison} lists the main differences between the methods. The three scores share one structural property.
+
+\begin{proposition}\label{prop:monotone}
+Fix an observed set $m$ and let $v,v'$ have the same observed set with $v'_j\le v_j$ for all $j\in m$. Then $A(v',m)\le A(v,m)$ for each of the three scores. Hence every region $\{A\le\widehat q\}$ is downward closed: if a label is accepted, it stays accepted when its scores improve.
+\end{proposition}
+
+\begin{proof}
+For \eqref{eq:collapsed} this is clear because the mean is nondecreasing in each coordinate. In \eqref{eq:radial} each ratio $v_j/(b_{tj}+\varepsilon)$ is nondecreasing in $v_j$, and a maximum and a minimum of nondecreasing functions is nondecreasing. For \eqref{eq:strip}, $v'_j\le v_j$ gives $b_j(v'_j)\le b_j(v_j)$, so $\tilde L_{ji,b_j(v'_j)}\ge\tilde L_{ji,b_j(v_j)}$ by \eqref{eq:monotone}. Together with $v'_i\le v_i$ every ratio in \eqref{eq:strip} gets smaller. The case $|m|=1$ is again a ratio nondecreasing in $v_j$.
+\end{proof}
+
+The proposition is not used for the coverage statement. For fixed $S_1$ (and fixed directions $u_r$, which are drawn independently of $S_2$ and of the new observation) each score is a fixed function of $(v,m)$, so the rank argument of Section~\ref{sec:setup} applies to all three in the same way. Monotonicity is only a sanity property of the learned shapes.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{table}[t]
+\centering
+\small
+\begin{tabular}{@{}p{3.1cm}p{3.0cm}p{3.3cm}p{3.6cm}@{}}
+\toprule
+ & Collapsed & Radial & Strip\\
+\midrule
+Learned on $S_1$ & kept coordinates & radii $\rho_r$ & limits $\tilde L_{ji,b}$, quantiles $q_j$\\
+Region (fixed $m$) & halfspace & union of boxes & intersection of pairwise constraints\\
+Downward closed & yes & yes & yes\\
+Single observed coordinate & the value itself & ratio to the boundary points & ratio to the marginal quantile $q_j$\\
+Fully missing vector at prediction & label rejected & label accepted & label accepted\\
+\bottomrule
+\end{tabular}
+\caption{Comparison of the three constructions. A sample with no observed score for the true class is rejected during fitting, so the rule for fully missing vectors at prediction is not covered by the calibration, and we make no coverage claim for it.}
+\label{tab:comparison}
+\end{table}
