@@ -1,5 +1,5 @@
 # Fdb version 4
-["pdflatex"] 1791766813.20187 "c:/Users/PMLS/Desktop/Conformal Library/Paper/main.tex" "main.pdf" "main" 1791766818.79224 0
+["pdflatex"] 1791817442.81781 "c:/Users/PMLS/Desktop/Conformal Library/Paper/main.tex" "main.pdf" "main" 1791817446.14363 0
   "Abstract.tex" 1791677732 14 9f241c6ab43c5f8c747adcb16e49b83e ""
   "c:/Users/PMLS/Desktop/Conformal Library/Paper/main.tex" 1791677786 730 0a7a789158495db16d9cf20e34b87da4 ""
   "c:/texlive/2026/texmf-dist/fonts/enc/dvips/base/8r.enc" 1779807214 4850 80dc9bab7f31fb78a000ccfed0e27cab ""
@@ -29,6 +29,7 @@
   "c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb" 1779802657 36299 5f9df58c2139e7edcf37c8fca4bd384d ""
   "c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb" 1779802657 35752 024fb6c41858982481f6968b5fc26508 ""
   "c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb" 1779802657 32569 5e5ddc8df908dea60932f3c484a54c0d ""
+  "c:/texlive/2026/texmf-dist/fonts/type1/public/rsfs/rsfs10.pfb" 1779834606 16077 4737ac34f0fb5608550f3780a0202c22 ""
   "c:/texlive/2026/texmf-dist/fonts/type1/urw/symbol/usyr.pfb" 1779835141 33709 b09d2e140b7e807d3a97058263ab6693 ""
   "c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmb8a.pfb" 1779835584 44729 fea0975e20ec51c992338362f05f1146 ""
   "c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmr8a.pfb" 1779835584 46026 687528a208fbfc1f00832bb96cccebbb ""
@@ -254,11 +255,11 @@
   "c:/texlive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map" 1779836457 5619402 ad1310ccf7f36101ef3e8f014a173c46 ""
   "c:/texlive/2026/texmf-var/web2c/pdftex/pdflatex.fmt" 1779836539 3651027 c29cdc331aa84ea8f8acaabd4acafee3 ""
   "c:/texlive/2026/texmf.cnf" 1779836426 713 e69b156964470283e0530f5060668171 ""
-  "main.aux" 1791766818 3050 79bd172e40d6d4e235a8754357779538 "pdflatex"
-  "main.out" 1791766818 224 0fb723efc767bca0e752ae4c980db237 "pdflatex"
+  "main.aux" 1791817445 2370 eb0d6f5ee7d1ca226e0c35ea2febeea3 "pdflatex"
+  "main.out" 1791817445 224 0fb723efc767bca0e752ae4c980db237 "pdflatex"
   "main.tex" 1791677786 730 0a7a789158495db16d9cf20e34b87da4 ""
   "preamble.tex" 1791677676 1707 3f17cc76463d1cfc4fd7d56c8d0aadbd ""
-  "section3.tex" 1791766811 8802 dda10bf74ad58bcc7b8f1693c5021350 ""
+  "section3.tex" 1791817438 10358 6cc9239113ae4cff8961586127cf82c6 ""
   (generated)
   "main.aux"
   "main.log"

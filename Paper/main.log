@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.5.27)  12 OCT 2026 03:00
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.5.27)  12 OCT 2026 17:04
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -847,37 +847,7 @@ LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <8> not available
 (Font)              Font shape `OT1/ptm/b/n' tried instead on input line 23.
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <6> not available
 (Font)              Font shape `OT1/ptm/b/n' tried instead on input line 23.
- (./section3.tex [1]
-LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <10> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 99.
-LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <7.4> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 99.
-
-Underfull \hbox (badness 2318) in paragraph at lines 104--105
-[]\T1/ptm/m/n/10 intersection of pair-wise
- []
-
-
-Underfull \hbox (badness 1194) in paragraph at lines 106--106
-[]\T1/ptm/m/n/10 ratio to the bound-ary
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 106--107
-[]\T1/ptm/m/n/10 ratio to the marginal
- []
-
-) [2]
-pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.31 \end{document}
-                    [1
-pdfTeX warning (ext4): destination with the same identifier (name{table.1}) has been already used, duplicate ignored
-<argument> ...shipout:D \box_use:N \l_shipout_box 
-                                                  \__shipout_drop_firstpage_...
-l.31 \end{document}
-                   ] (./main.aux)
+ (./section3.tex [1] [2]) [3] (./main.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-05-15>
@@ -886,18 +856,18 @@ Package rerunfilecheck Info: File `main.out' has not changed.
 (rerunfilecheck)             Checksum: 0FB723EFC767BCA0E752AE4C980DB237;224.
  ) 
 Here is how much of TeX's memory you used:
- 39121 strings out of 467340
- 913975 string characters out of 5419566
- 1530757 words of memory out of 5000000
- 67520 multiletter control sequences out of 15000+600000
- 678094 words of font info for 127 fonts, out of 8000000 for 9000
+ 39084 strings out of 467340
+ 913459 string characters out of 5419566
+ 1529584 words of memory out of 5000000
+ 67493 multiletter control sequences out of 15000+600000
+ 663729 words of font info for 100 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 89i,13n,107p,794b,473s stack positions out of 10000i,1000n,20000p,200000b,200000s
-<c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/symbol/usyr.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/symbol/usyr.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on main.pdf (4 pages, 100791 bytes).
+ 89i,12n,107p,794b,609s stack positions out of 10000i,1000n,20000p,200000b,200000s
+<c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/rsfs/rsfs10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/symbol/usyr.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/symbol/usyr.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
+Output written on main.pdf (4 pages, 104776 bytes).
 PDF statistics:
- 132 PDF objects out of 1000 (max. 8388607)
- 91 compressed objects within 1 object stream
+ 136 PDF objects out of 1000 (max. 8388607)
+ 93 compressed objects within 1 object stream
  20 named destinations out of 1000 (max. 500000)
  125 words of extra memory for PDF output out of 10000 (max. 10000000)
 
