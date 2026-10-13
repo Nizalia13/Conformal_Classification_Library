@@ -1,0 +1,61 @@
+% $ biblatex auxiliary file $
+% $ biblatex bbl format version 3.3 $
+% Do not modify the above lines!
+%
+% This is an auxiliary file used by the 'biblatex' package.
+% This file may safely be deleted. It will be recreated by
+% biber as required.
+%
+\begingroup
+\makeatletter
+\@ifundefined{ver@biblatex.sty}
+  {\@latex@error
+     {Missing 'biblatex' package}
+     {The bibliography requires the 'biblatex' package.}
+      \aftergroup\endinput}
+  {}
+\endgroup
+
+
+\refsection{0}
+  \datalist[entry]{none/global//global/global/global}
+    \entry{vovk2005algorithmic}{book}{}{}
+      \name{author}{3}{}{%
+        {{hash=bef6907ff5daebb69843cf35c8af1a83}{%
+           family={Vovk},
+           familyi={V\bibinitperiod},
+           given={Vladimir},
+           giveni={V\bibinitperiod}}}%
+        {{hash=ca87923b059d26a133029c97697f174d}{%
+           family={Gammerman},
+           familyi={G\bibinitperiod},
+           given={Alexander},
+           giveni={A\bibinitperiod}}}%
+        {{hash=071635b97777823135be2ea970911b06}{%
+           family={Shafer},
+           familyi={S\bibinitperiod},
+           given={Glenn},
+           giveni={G\bibinitperiod}}}%
+      }
+      \list{publisher}{1}{%
+        {Springer Science \& Business Media}%
+      }
+      \strng{namehash}{f522739be82db7e155f6ba79833cba46}
+      \strng{fullhash}{f522739be82db7e155f6ba79833cba46}
+      \strng{fullhashraw}{f522739be82db7e155f6ba79833cba46}
+      \strng{bibnamehash}{f522739be82db7e155f6ba79833cba46}
+      \strng{authorbibnamehash}{f522739be82db7e155f6ba79833cba46}
+      \strng{authornamehash}{f522739be82db7e155f6ba79833cba46}
+      \strng{authorfullhash}{f522739be82db7e155f6ba79833cba46}
+      \strng{authorfullhashraw}{f522739be82db7e155f6ba79833cba46}
+      \field{sortinit}{1}
+      \field{sortinithash}{4f6aaa89bab872aa0999fec09ff8e98a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{title}{Algorithmic Learning in a Random World}
+      \field{year}{2005}
+    \endentry
+  \enddatalist
+\endrefsection
+\endinput
+

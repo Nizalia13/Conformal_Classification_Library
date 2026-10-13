@@ -1,0 +1,55 @@
+\section{Setup and calibration}\label{sec:setup}
+
+Let $\mathcal H=\{h_1,\dots,h_N\}$ be the discrete set of candidate classes. Our aim is to build a function $C$ that maps an 
+input $x$ to a subset $C(x)\subseteq\mathcal H$ of classes, such that the true class lies in the set with probability at least 
+$1-\alpha$. Our input is described by scores from several predictors. For each candidate class $h$ we have a raw score vector 
+$s_h=(s_{h,1},\dots,s_{h,K_h})\in([0,1]\cup\{\mathrm{NA}\})^{K_h}$, where $s_{h,k}$ is the evidence of the $k$-th predictor in 
+favour of class $h$, while $\mathrm{NA}$ means that this predictor gave no score for the given class. We do not impute missing 
+scores $(\mathrm{NA})$. Instead, we record the set of observed coordinates $m_h=\{k:s_{h,k}\neq\mathrm{NA}\}$ and define all 
+scoring functions on the pairs $(s_h,m_h)$ and not on $s_h$ alone. A score close to $1$ means strong evidence for $h$, thus we 
+map every observed coordinate to the nonconformity score $v_{h,k}=1-s_{h,k}$. When $h$ is the true class, the vector $v_h$ 
+concentrates near the origin, while if $h$ is not the true class, the vector $v_h$ is further away. In 
+Section~\ref{sec3:constructions} we write $v$ for such a vector $v_h$ and drop the index $h$.
+
+Suppose we have a labelled calibration sample $\{(x_i,y_i)\}$. The predictors that produce the scores are trained on data that 
+is disjoint from this sample and the test points. For each class $h$, the points with $y_i=h$ are randomly split into the shape  
+discovery set $S_{1,h}$ and the size scaling set $S_{2,h}$. Each pair $(v_h(x_i),m_h(x_i))$ shows the score pattern for class 
+$h$ when it is actually the true class. A separate envelope is fitted for every class, using only the samples of that class.
+
+Using $S_{1,h}$, we construct the scalar score $\tau_h(v,m)$, using one of the three envelope construction techniques in 
+Section~\ref{sec3:constructions}. We then compute the class specific scale factor $\hat t_h$ on $S_{2,h}$ as:
+\begin{equation}\label{eq:qhat}
+\hat t_h=\tau_{h,(k_h)},\qquad k_h=\lceil(|S_{2,h}|+1)(1-\alpha)\rceil,
+\end{equation}
+where $\tau_{h,(k)}$ is the $k$-th smallest value of $\{\tau_h(v,m):(v,m)\in S_{2,h}\}$, and $\hat t_h=\infty$ if 
+$k_h>|S_{2,h}|$. The threshold value $\hat t_h$ is can be computed directly since the calibration set of class $h$ only contains 
+samples of this class. The prediction set of a new input $x$ contains every class whose scaled envelope accepts the scores of $x$,
+\begin{equation}\label{eq:set}
+C(x)=\bigl\{h\in\mathcal H:\ \tau_h\bigl(v_h(x),m_h(x)\bigr)\le\hat t_h\bigr\}.
+\end{equation}
+
+\begin{theorem}[Class-conditional coverage]\label{thm:coverage}
+Assume that for every class $h$, the pairs $(v_h,m_h)$ of the samples in $S_{1,h}$ and $S_{2,h}$ and of a new sample with true 
+class $h$ are exchangeable. Then, for every $h\in\mathcal H$,
+\[ \mathbb P\bigl(Y\in C(X)\mid Y=h\bigr)\ \ge\ 1-\alpha ,\]
+and in particular $\mathbb P(Y\in C(X))\ge 1-\alpha$. If in addition the values of $\tau_h$ are almost surely distinct, then 
+$\mathbb P(Y\in C(X)\mid Y=h)\le 1-\alpha+1/(|S_{2,h}|+1)$.
+\end{theorem}
+
+\begin{proof}
+Let us fix a class $h$ and write $n=|S_{2,h}|$ and $k=k_h$. We condition on $S_{1,h}$ and on the random directions of the radial 
+method, which are independent of $S_{2,h}$ and of the new sample. Then $\tau_h$ is a fixed function. Let $T_1,\dots,T_n$ be its 
+values on $S_{2,h}$ and let $T_0$ be its value on a new sample with $Y=h$. Since $T_0, \dots, T_n$ are exchangeable, the rank of 
+$T_0$ is uniformly distributed over $\{1, \dots, n+1\}$ when there are no ties, and ties can only make the rank of $T_0$ smaller. 
+The event $\{h\in C(X)\}$ is $\{T_0\le T_{(k)}\}$, so  \[ \mathbb P\bigl(T_0\le T_{(k)}\bigr)\ \ge\ \frac{k}{n+1}\ \ge\ 1-\alpha .\]
+If $k>n$ then $\hat t_h=\infty$ and the probability is $1$. If the values are almost surely distinct, the probability equals 
+$k/(n+1)<1-\alpha+1/(n+1)$. Averaging over $S_{1,h}$ and the directions gives the class conditional statement, and averaging over 
+$h$ with the class probabilities gives the marginal one.
+\end{proof}
+
+This is the Mondrian form of conformal prediction \cite{vovk2005algorithmic}. It does not give coverage conditional on an 
+individual input $x$, which is not possible in finite samples without strong assumptions. The observed sets $m_h$ are part of the 
+exchangeable pairs, so a new sample must have the same missingness mechanism as the calibration samples. If a class has few 
+calibration samples, so that $k_h>|S_{2,h}|$, its threshold is infinite and it is always accepted. The library can also return 
+the class with the smallest normalized score $\tau_h/\hat t_h$ when $C(x)$ is empty. This only enlarges the set, so the lower 
+bound still holds, but we do not use this option in our experiments, which means that empty sets count as errors.

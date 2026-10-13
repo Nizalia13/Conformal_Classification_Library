@@ -1,4 +1,5 @@
-\section{Envelope constructions}\label{sec:constructions}
+\section{Envelope constructions}
+\label{sec3:constructions}
 
 Each of the three envelope construction methods follows the same two stage calibration procedure: the shape-discovery set $S_1$ is 
 used to determine the geometric shape of the envelope, then the size scaling set $S_2$ is used to determine the scaling factor 
@@ -11,49 +12,50 @@ directly as a maximum of ratios.
 
 We first fix a class $h$ and drop the index $h$. $K$ denotes the number of coordinates that remain after removing the coordinates 
 that are missing for every sample of $S_1$. For a vector $v\in[0,\infty)^K$ and observed set $m\subseteq\{1,\dots,K\}$, we write 
-$v_k$, $k\in m$, for just its observed entries. We use $\varepsilon=10^{-12}$ to prevent division by zero, and $Q_p(\cdot)$ denotes 
+$v_j$, $j\in m$, for just its observed entries. We use $\varepsilon=10^{-12}$ to prevent division by zero, and $Q_p(\cdot)$ denotes 
 the empirical $p$-quantile.
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 \paragraph{Collapsed envelope.} The basic envelope construction simply collapses the $K$-dimensional score vector to a scalar score 
 by taking the mean over the observed coordinates, and calibrates a single quantile on $S_1$:
 \begin{equation}\label{eq:collapsed}
-\bar v=\frac{1}{|m|}\sum_{j\in m}v_j,\qquad \tilde q=Q_{1-\alpha}\bigl(\{\bar v_i\}_{i\in S_1}\bigr),\qquad
+\bar v=\frac{1}{|m|}\sum_{j\in m}v_j,\qquad \tilde q=Q_{1-\alpha}\bigl(\{\bar v:v\in S_1\}\bigr),\qquad
 \tau(v,m)=\frac{\bar v}{\tilde q},\qquad
 E=\{v:\bar v\le\tilde q\}.
 \end{equation}
 
 This method discards the geometric information that the $K$ coordinates provide. Two vectors with the same mean are treated 
-identically whatever the distribution of their coordinates is, so a single coordinate with strong evidence (a very small $v_k$) is 
+identically whatever the distribution of their coordinates is, so a single coordinate with strong evidence (a very small $v_j$) is 
 averaged together with all the others. The accepted region is a halfspace in the observed coordinates. It serves as a mean score baseline 
 for the multidimensional constructions below. After calibration on $S_2$, a vector is accepted when $\bar v/\tilde q\le\hat t$, 
-which is the same as $\bar v\le\hat t\,\tilde q$. Here $\hat t$ is the $k$-th smallest value of $\bar v_i/\tilde q$ over $S_2$, 
-so $\hat t\,\tilde q$ is just the $k$-th smallest value of $\bar v_i$ over $S_2$. 
+which is the same as $\bar v\le\hat t\,\tilde q$. Here $\hat t$ is the $k$-th smallest value of $\bar v/\tilde q$ over $v\in S_2$, 
+so $\hat t\,\tilde q$ is just the $k$-th smallest value of of $\bar v$ over $v\in S_2$. 
 % This means that $\tilde q$ does not change the prediction set, and for this method $S_1$ is only 
 % used to decide which coordinates are kept.
 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
+ 
 \paragraph{Radial envelope.} The radial envelope method retains the directional information of the scores. It works by calibrating 
 a boundary radius as a function of direction on the unit sphere, which is restricted to the positive orthant since all nonconformity 
 scores are nonnegative. We sample $M$ directions $\{u_r\}_{r=1}^M$ uniformly from the positive orthant by drawing independent vectors $g_r\sim|\mathcal 
-N(0,I_K)|$ and normalizing them, $u_r=g_r/\|g_r\|$. For each vector $v_i \in S_1$, we compute its norm $\Vert{}v_i\Vert{}$ and 
-unit direction $d_i = v_i / \Vert{}v_i\Vert{}$ using only the observed coordinates.
+N(0,I_K)|$ and normalizing them, $u_r=g_r/\|g_r\|$. For each vector $v\in S_1$, we compute its norm $\Vert{}v\Vert{}$ and  
+unit direction $d_v = v / \Vert{}v\Vert{}$ using only the observed coordinates.
 For each direction $u_r$, we collect the $n_r$ points of $S_1$ within an angular sector of half width $\delta=30^\circ$, that is, 
-those with $d_i\cdot u_r\ge\cos\delta$. The directional radius $\tilde q_r$ is then calibrated as
+those with $d_v\cdot u_r\ge\cos\delta$. The directional radius $\tilde q_r$ is then calibrated as
 \begin{equation}\label{eq:radii}
 \tilde q_r=\begin{cases}
-Q_{1-\alpha}\bigl(\{\|v_i\|:d_i\cdot u_r\ge\cos\delta\}\bigr) & \text{if } n_r\ge n_{\min},\\[1ex]
-w_r\,Q_{1-\alpha}\bigl(\{\|v_i\|:d_i\cdot u_r\ge\cos\delta\}\bigr)+(1-w_r)\,\tilde q_{\mathrm{marg}} & \text{if } 
+Q_{1-\alpha}\bigl(\{\|v\|:d_v\cdot u_r\ge\cos\delta\}\bigr) & \text{if } n_r\ge n_{\min},\\[1ex]
+w_r\,Q_{1-\alpha}\bigl(\{\|v\|:d_v\cdot u_r\ge\cos\delta\}\bigr)+(1-w_r)\,\tilde q_{\mathrm{marg}} & \text{if } 
 0<n_r<n_{\min},\\[1ex]
 \tilde q_{\mathrm{marg}} & \text{if } n_r=0,
 \end{cases}
 \end{equation}
 
 where $n_{\min}=\max\{10,\lfloor 0.2\,|S_1|\rfloor\}$ is the minimum number of points required, $w_r=n_r/n_{\min}$, and 
-$\tilde q_{\mathrm{marg}}=Q_{1-\alpha}(\{\|v_i\|\}_{i\in S_1})$ is the marginal fallback radius. This helps us avoid a hard 
+$\tilde q_{\mathrm{marg}}=Q_{1-\alpha}(\{\|s\|:s\in S_1\})$ is the marginal fallback radius. This helps us avoid a hard 
 cutoff between sufficient and insufficient local support. To get a smooth boundary, we compute the radius in an arbitrary direction 
 $d$ as a weighted average of all $M$ calibrated radii,
 \begin{equation}\label{eq:smooth}
@@ -61,32 +63,35 @@ R(d)=\sum_{r=1}^{M}\omega_r(d)\,\tilde q_r,\qquad
 \omega_r(d)=\frac{\exp(\kappa\,d\cdot u_r)}{\sum_{r'=1}^{M}\exp(\kappa\,d\cdot u_{r'})},
 \end{equation}
 where $\kappa>0$ controls the angular smoothness (a larger $\kappa$ gets closer to nearest-direction assignment). We evaluate $R$ 
-at the directions $a_t\in\{u_1,\dots,u_M,e_1,\dots,e_K\}$, where the $e_j$ are the coordinate axes. This gives us the boundary points 
-$b_t=R(a_t)\,a_t$. The envelope $E$ is the union of the boxes $\{v:0\le v\le b_t\}$ over all $t$, and the scaling function has the 
+at the directions $a_p\in\{u_1,\dots,u_M,e_1,\dots,e_K\}$, where the $e_j$ are the coordinate axes. This gives us the boundary points 
+$b_p=R(a_p)\,a_p$. The envelope $E$ is the union of the boxes $\{v:0\le v\le b_p\}$ over all $p$, and the scaling function has the 
 closed form:
 \begin{equation}\label{eq:radial}
-\tau(v,m)=\min_{t}\;\max_{j\in m}\;\frac{v_j}{b_{tj}+\varepsilon},
+\tau(v,m)=\min_{p}\;\max_{j\in m}\;\frac{v_j}{b_{pj}+\varepsilon},
 \end{equation}
 which is $\inf\{t>0:v\in t\cdot E\}$ computed on the observed coordinates. We use $M=250$ and $\kappa=8$ by default.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+ → 
+ →  (twice, in the limits equation)
+
 \paragraph{Strip envelope.} The strip envelope works by defining conditional bounds for each target coordinate $i$ based on the 
 bin occupied by another coordinate $j$. We partition the range of the observed $S_1$ values of coordinate $j$ into $NB$ equal width 
 bins, and write $\beta_j(x)$ for the bin that contains $x$ (a value below the smallest or above the largest observed $S_1$ value of 
-coordinate $j$ is put in the first or last bin, respectively). We work with the level $\alpha'=\alpha/K$, a Bonferroni correction 
+coordinate $j$ is put in the first or last bin, respectively). We work with the level $\alpha'=\alpha/K$, a Bonferroni type correction 
 for the $K$ coordinates. It only affects the shape of the envelope, since the coverage is controlled by $\hat t$. For each bin $n$ 
 containing $n_{j,n}$ points of $S_1$ with both $v_j$ and $v_i$ observed, the upper limit along coordinate $i\neq j$ is calibrated as
 \begin{equation}\label{eq:limits}
 L_{j,i,n}=\begin{cases}
-Q_{1-\alpha'}\bigl(\{v_i:\beta_j(v_j)=n\}\bigr) & \text{if } n_{j,n}\ge n_{\min},\\[1ex]
-w_{j,n}\,Q_{1-\alpha'}\bigl(\{v_i:\beta_j(v_j)=n\}\bigr)+(1-w_{j,n})\,\tilde q_i & \text{if } 0<n_{j,n}<n_{\min},\\[1ex]
+Q_{1-\alpha'}\bigl(\{v_i:v\in S_1,\ \beta_j(v_j)=n\}\bigr) & \text{if } n_{j,n}\ge n_0,\\[1ex]
+w_{j,n}\,Q_{1-\alpha'}\bigl(\{v_i:v\in S_1,\ \beta_j(v_j)=n\}\bigr)+(1-w_{j,n})\,\tilde q_i & \text{if } 0<n_{j,n}<n_0,\\[1ex]
 \tilde q_i & \text{if } n_{j,n}=0,
 \end{cases}
 \end{equation}
-where $\tilde q_i$ is the marginal $(1-\alpha')$ quantile of coordinate $i$ over $S_1$ and $w_{j,n}=n_{j,n}/n_{\min}$ shrinks the 
-limit of underpopulated bins towards it, which is similar to the blending rule of the radial envelope. Then there is a 
-monotonicity pass that makes sure that the limits are nonincreasing in the bin index,
+where $\tilde q_i$ is the marginal $(1-\alpha')$ quantile of coordinate $i$ over $S_1$, $n_0$ is the minimum number of points required 
+in a bin, and $w_{j,n}=n_{j,n}/n_0$ shrinks the limit of underpopulated bins towards it, which is similar to the blending rule of the 
+radial envelope. Then there is a monotonicity pass that makes sure that the limits are nonincreasing in the bin index,
 \begin{equation}\label{eq:monotone}
 L_{j,i,n}\leftarrow\max_{n'\ge n}L_{j,i,n'}.
 \end{equation}
@@ -101,7 +106,7 @@ a target nor as a conditioning coordinate. The scaling function is
 \end{cases}
 \end{equation}
 so a vector is accepted when $v_i\le\hat t\,L_{j,i,\beta_j(v_j)}$ for every pair of observed coordinates. The single scalar 
-$\hat t$ multiplies all the limits, while the bins stay fixed. We use $NB=8$ and $n_{\min}=3$ by default.
+$\hat t$ multiplies all the limits, while the bins stay fixed. We use $NB=8$ and $n_0=3$ by default.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -115,10 +120,10 @@ closed, so if a candidate class is accepted, it stays accepted when its scores i
 
 \begin{proof}
 For \eqref{eq:collapsed} this is clear, because $\tilde q$ does not depend on $v$ and the mean is nondecreasing in each coordinate. 
-In \eqref{eq:radial} each ratio $v_j/(b_{tj}+\varepsilon)$ is nondecreasing in $v_j$, and a maximum and a minimum of nondecreasing 
-functions is nondecreasing. For \eqref{eq:strip}, $v'_j\le v_j$ gives $\beta_j(v'_j)\le\beta_j(v_j)$, so $L_{j,i,\beta_j(v'_j)}
-\ge L_{j,i,\beta_j(v_j)}$ by \eqref{eq:monotone}. Together with $v'_i\le v_i$, every ratio in \eqref{eq:strip} gets smaller. 
-The case $|m|=1$ is again a ratio that is nondecreasing in $v_j$.
+In \eqref{eq:radial} each ratio $v_j/(b_{pj}+\varepsilon)$ is nondecreasing in $v_j$, and a maximum and a minimum of nondecreasing 
+functions is nondecreasing. For \eqref{eq:strip}, $v'_j\le v_j$ gives $\beta_j(v'_j)\le\beta_j(v_j)$ because $\beta_j$ is 
+nondecreasing, so $L_{j,i,\beta_j(v'_j)} \ge L_{j,i,\beta_j(v_j)}$ by \eqref{eq:monotone}. Together with $v'_i\le v_i$, every ratio 
+in \eqref{eq:strip} gets smaller. The case $|m|=1$ is again a ratio that is nondecreasing in $v_j$.
 \end{proof}
 
 The proposition is not needed for the coverage statement of Section~\ref{sec:setup}. For fixed $S_1$ (and fixed directions $u_r$, 

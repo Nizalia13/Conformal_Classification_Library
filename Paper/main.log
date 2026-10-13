@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.5.27)  12 OCT 2026 17:04
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.5.27)  13 OCT 2026 23:16
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
@@ -660,14 +660,279 @@ Package: float 2001/11/08 v1.3d Float enhancements (AL)
 \float@box=\box69
 \@float@everytoks=\toks49
 \@floatcapt=\box70
+) (c:/texlive/2026/texmf-dist/tex/latex/todonotes/todonotes.sty
+Package: todonotes 2024/01/05 v1.1.7 Todonotes source and documentation.
+Package: todonotes 2024/01/05
+ (c:/texlive/2026/texmf-dist/tex/latex/base/ifthen.sty
+Package: ifthen 2024/03/16 v1.1e Standard LaTeX ifthen package (DPC)
+) (c:/texlive/2026/texmf-dist/tex/latex/xkeyval/xkeyval.sty
+Package: xkeyval 2025/11/04 v2.10 package option processing (HA)
+ (c:/texlive/2026/texmf-dist/tex/generic/xkeyval/xkeyval.tex (c:/texlive/2026/texmf-dist/tex/generic/xkeyval/xkvutils.tex
+\XKV@toks=\toks50
+\XKV@tempa@toks=\toks51
+\XKV@tempb@toks=\toks52
 )
-\c@theorem=\count360
-\c@definition=\count361
+\XKV@depth=\count360
+File: xkeyval.tex 2014/12/03 v2.7a key=value parser (HA)
+)) (c:/texlive/2026/texmf-dist/tex/latex/tools/calc.sty
+Package: calc 2025/03/01 v4.3b Infix arithmetic (KKT,FJ)
+\calc@Acount=\count361
+\calc@Bcount=\count362
+\calc@Adimen=\dimen324
+\calc@Bdimen=\dimen325
+\calc@Askip=\skip61
+\calc@Bskip=\skip62
+LaTeX Info: Redefining \setlength on input line 86.
+LaTeX Info: Redefining \addtolength on input line 87.
+\calc@Ccount=\count363
+\calc@Cskip=\skip63
+)
+\c@@todonotes@numberoftodonotes=\count364
+) (c:/texlive/2026/texmf-dist/tex/latex/csquotes/csquotes.sty
+Package: csquotes 2026-05-19 v5.2p context-sensitive quotations (JAW)
+\csq@reset=\count365
+\csq@gtype=\count366
+\csq@glevel=\count367
+\csq@qlevel=\count368
+\csq@maxlvl=\count369
+\csq@tshold=\count370
+\csq@ltx@everypar=\toks53
+ (c:/texlive/2026/texmf-dist/tex/latex/csquotes/csquotes.def
+File: csquotes.def 2026-05-19 v5.2p csquotes generic definitions (JAW)
+)
+Package csquotes Info: Trying to load configuration file 'csquotes.cfg'...
+Package csquotes Info: ... configuration file loaded successfully.
+ (c:/texlive/2026/texmf-dist/tex/latex/csquotes/csquotes.cfg
+File: csquotes.cfg 
+)) (c:/texlive/2026/texmf-dist/tex/latex/biblatex/biblatex.sty
+Package: biblatex 2025/07/10 v3.21 programmable bibliographies (PK/MW)
+ (c:/texlive/2026/texmf-dist/tex/latex/logreq/logreq.sty
+Package: logreq 2010/08/04 v1.0 xml request logger
+\lrq@indent=\count371
+ (c:/texlive/2026/texmf-dist/tex/latex/logreq/logreq.def
+File: logreq.def 2010/08/04 v1.0 logreq spec v1.0
+))
+\c@tabx@nest=\count372
+\c@listtotal=\count373
+\c@listcount=\count374
+\c@liststart=\count375
+\c@liststop=\count376
+\c@citecount=\count377
+\c@citetotal=\count378
+\c@multicitecount=\count379
+\c@multicitetotal=\count380
+\c@instcount=\count381
+\c@maxnames=\count382
+\c@minnames=\count383
+\c@maxitems=\count384
+\c@minitems=\count385
+\c@citecounter=\count386
+\c@maxcitecounter=\count387
+\c@savedcitecounter=\count388
+\c@uniquelist=\count389
+\c@uniquename=\count390
+\c@refsection=\count391
+\c@refsegment=\count392
+\c@maxextratitle=\count393
+\c@maxextratitleyear=\count394
+\c@maxextraname=\count395
+\c@maxextradate=\count396
+\c@maxextraalpha=\count397
+\c@abbrvpenalty=\count398
+\c@highnamepenalty=\count399
+\c@lownamepenalty=\count400
+\c@maxparens=\count401
+\c@parenlevel=\count402
+\blx@tempcnta=\count403
+\blx@tempcntb=\count404
+\blx@tempcntc=\count405
+\c@blx@maxsection=\count406
+\blx@maxsegment@0=\count407
+\blx@notetype=\count408
+\blx@parenlevel@text=\count409
+\blx@parenlevel@foot=\count410
+\blx@sectionciteorder@0=\count411
+\blx@sectionciteorderinternal@0=\count412
+\blx@entrysetcounter=\count413
+\blx@biblioinstance=\count414
+\labelnumberwidth=\skip64
+\labelalphawidth=\skip65
+\biblabelsep=\skip66
+\bibitemsep=\skip67
+\bibnamesep=\skip68
+\bibinitsep=\skip69
+\bibparsep=\skip70
+\bibhang=\skip71
+\blx@bcfin=\read4
+\blx@bcfout=\write4
+\blx@langwohyphens=\language92
+\c@mincomprange=\count415
+\c@maxcomprange=\count416
+\c@mincompwidth=\count417
+Package biblatex Info: Trying to load biblatex default data model...
+Package biblatex Info: ... file 'blx-dm.def' found.
+ (c:/texlive/2026/texmf-dist/tex/latex/biblatex/blx-dm.def
+File: blx-dm.def 2025/07/10 v3.21 biblatex datamodel (PK/MW)
+)
+Package biblatex Info: Trying to load biblatex style data model...
+Package biblatex Info: ... file 'numeric.dbx' not found.
+Package biblatex Info: Trying to load biblatex custom data model...
+Package biblatex Info: ... file 'biblatex-dm.cfg' not found.
+\c@afterword=\count418
+\c@savedafterword=\count419
+\c@annotator=\count420
+\c@savedannotator=\count421
+\c@author=\count422
+\c@savedauthor=\count423
+\c@bookauthor=\count424
+\c@savedbookauthor=\count425
+\c@commentator=\count426
+\c@savedcommentator=\count427
+\c@editor=\count428
+\c@savededitor=\count429
+\c@editora=\count430
+\c@savededitora=\count431
+\c@editorb=\count432
+\c@savededitorb=\count433
+\c@editorc=\count434
+\c@savededitorc=\count435
+\c@foreword=\count436
+\c@savedforeword=\count437
+\c@holder=\count438
+\c@savedholder=\count439
+\c@introduction=\count440
+\c@savedintroduction=\count441
+\c@namea=\count442
+\c@savednamea=\count443
+\c@nameb=\count444
+\c@savednameb=\count445
+\c@namec=\count446
+\c@savednamec=\count447
+\c@translator=\count448
+\c@savedtranslator=\count449
+\c@shortauthor=\count450
+\c@savedshortauthor=\count451
+\c@shorteditor=\count452
+\c@savedshorteditor=\count453
+\c@labelname=\count454
+\c@savedlabelname=\count455
+\c@institution=\count456
+\c@savedinstitution=\count457
+\c@lista=\count458
+\c@savedlista=\count459
+\c@listb=\count460
+\c@savedlistb=\count461
+\c@listc=\count462
+\c@savedlistc=\count463
+\c@listd=\count464
+\c@savedlistd=\count465
+\c@liste=\count466
+\c@savedliste=\count467
+\c@listf=\count468
+\c@savedlistf=\count469
+\c@location=\count470
+\c@savedlocation=\count471
+\c@organization=\count472
+\c@savedorganization=\count473
+\c@origlocation=\count474
+\c@savedoriglocation=\count475
+\c@origpublisher=\count476
+\c@savedorigpublisher=\count477
+\c@publisher=\count478
+\c@savedpublisher=\count479
+\c@language=\count480
+\c@savedlanguage=\count481
+\c@origlanguage=\count482
+\c@savedoriglanguage=\count483
+\c@pageref=\count484
+\c@savedpageref=\count485
+\shorthandwidth=\skip72
+\shortjournalwidth=\skip73
+\shortserieswidth=\skip74
+\shorttitlewidth=\skip75
+\shortauthorwidth=\skip76
+\shorteditorwidth=\skip77
+\locallabelnumberwidth=\skip78
+\locallabelalphawidth=\skip79
+\localshorthandwidth=\skip80
+\localshortjournalwidth=\skip81
+\localshortserieswidth=\skip82
+\localshorttitlewidth=\skip83
+\localshortauthorwidth=\skip84
+\localshorteditorwidth=\skip85
+Package biblatex Info: Trying to load compatibility code...
+Package biblatex Info: ... file 'blx-compat.def' found.
+ (c:/texlive/2026/texmf-dist/tex/latex/biblatex/blx-compat.def
+File: blx-compat.def 2025/07/10 v3.21 biblatex compatibility (PK/MW)
+)
+Package biblatex Info: Trying to load generic definitions...
+Package biblatex Info: ... file 'biblatex.def' found.
+ (c:/texlive/2026/texmf-dist/tex/latex/biblatex/biblatex.def
+File: biblatex.def 2025/07/10 v3.21 biblatex compatibility (PK/MW)
+\c@textcitecount=\count486
+\c@textcitetotal=\count487
+\c@textcitemaxnames=\count488
+\c@biburlbigbreakpenalty=\count489
+\c@biburlbreakpenalty=\count490
+\c@biburlnumpenalty=\count491
+\c@biburlucpenalty=\count492
+\c@biburllcpenalty=\count493
+\biburlbigskip=\muskip19
+\biburlnumskip=\muskip20
+\biburlucskip=\muskip21
+\biburllcskip=\muskip22
+\c@smartand=\count494
+)
+Package biblatex Info: Trying to load bibliography style 'numeric'...
+Package biblatex Info: ... file 'numeric.bbx' found.
+ (c:/texlive/2026/texmf-dist/tex/latex/biblatex/bbx/numeric.bbx
+File: numeric.bbx 2025/07/10 v3.21 biblatex bibliography style (PK/MW)
+Package biblatex Info: Trying to load bibliography style 'standard'...
+Package biblatex Info: ... file 'standard.bbx' found.
+ (c:/texlive/2026/texmf-dist/tex/latex/biblatex/bbx/standard.bbx
+File: standard.bbx 2025/07/10 v3.21 biblatex bibliography style (PK/MW)
+\c@bbx:relatedcount=\count495
+\c@bbx:relatedtotal=\count496
+))
+Package biblatex Info: Trying to load citation style 'numeric'...
+Package biblatex Info: ... file 'numeric.cbx' found.
+ (c:/texlive/2026/texmf-dist/tex/latex/biblatex/cbx/numeric.cbx
+File: numeric.cbx 2025/07/10 v3.21 biblatex citation style (PK/MW)
+Package biblatex Info: Redefining '\cite'.
+Package biblatex Info: Redefining '\parencite'.
+Package biblatex Info: Redefining '\footcite'.
+Package biblatex Info: Redefining '\footcitetext'.
+Package biblatex Info: Redefining '\smartcite'.
+Package biblatex Info: Redefining '\supercite'.
+Package biblatex Info: Redefining '\textcite'.
+Package biblatex Info: Redefining '\textcites'.
+Package biblatex Info: Redefining '\cites'.
+Package biblatex Info: Redefining '\parencites'.
+Package biblatex Info: Redefining '\smartcites'.
+)
+Package biblatex Info: Trying to load configuration file...
+Package biblatex Info: ... file 'biblatex.cfg' found.
+ (c:/texlive/2026/texmf-dist/tex/latex/biblatex/biblatex.cfg
+File: biblatex.cfg 
+)
+Package biblatex Info: Input encoding 'utf8' detected.
+Package biblatex Info: Document encoding is UTF8 ....
+Package biblatex Info: ... and expl3
+(biblatex)             2026-05-15 L3 programming layer (loader) 
+(biblatex)             is new enough (at least 2020/04/06),
+(biblatex)             setting 'casechanger=expl3'.
+ (c:/texlive/2026/texmf-dist/tex/latex/biblatex/blx-case-expl3.sty (c:/texlive/2026/texmf-dist/tex/latex/l3packages/xparse/xparse.sty
+Package: xparse 2025-10-09 L3 Experimental document command parser
+)
+Package: blx-case-expl3 2025/07/10 v3.21 expl3 case changing code for biblatex
+))
+\c@theorem=\count497
+\c@definition=\count498
  (c:/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibraryarrows.code.tex
 File: tikzlibraryarrows.code.tex 2025-08-29 v3.1.11a (3.1.11a)
  (c:/texlive/2026/texmf-dist/tex/generic/pgf/libraries/pgflibraryarrows.code.tex
 File: pgflibraryarrows.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\arrowsize=\dimen324
+\arrowsize=\dimen326
 )) (c:/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibraryshapes.code.tex
 File: tikzlibraryshapes.code.tex 2025-08-29 v3.1.11a (3.1.11a)
  (c:/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz/libraries/tikzlibraryshapes.geometric.code.tex
@@ -720,22 +985,27 @@ File: pgflibraryfadings.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 File: tikzlibrarytrees.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 ) (c:/texlive/2026/texmf-dist/tex/latex/fancyhdr/fancyhdr.sty
 Package: fancyhdr 2025/02/07 v5.2 Extensive control of page headers and footers
-\f@nch@headwidth=\skip61
-\f@nch@offset@elh=\skip62
-\f@nch@offset@erh=\skip63
-\f@nch@offset@olh=\skip64
-\f@nch@offset@orh=\skip65
-\f@nch@offset@elf=\skip66
-\f@nch@offset@erf=\skip67
-\f@nch@offset@olf=\skip68
-\f@nch@offset@orf=\skip69
-\f@nch@height=\skip70
-\f@nch@footalignment=\skip71
-\f@nch@widthL=\skip72
-\f@nch@widthC=\skip73
-\f@nch@widthR=\skip74
-\@temptokenb=\toks50
-)) (./main.aux)
+\f@nch@headwidth=\skip86
+\f@nch@offset@elh=\skip87
+\f@nch@offset@erh=\skip88
+\f@nch@offset@olh=\skip89
+\f@nch@offset@orh=\skip90
+\f@nch@offset@elf=\skip91
+\f@nch@offset@erf=\skip92
+\f@nch@offset@olf=\skip93
+\f@nch@offset@orf=\skip94
+\f@nch@height=\skip95
+\f@nch@footalignment=\skip96
+\f@nch@widthL=\skip97
+\f@nch@widthC=\skip98
+\f@nch@widthR=\skip99
+\@temptokenb=\toks54
+))
+Package csquotes Info: Checking for multilingual support...
+Package csquotes Info: ... found 'babel' package.
+Package csquotes Info: Adjusting default style.
+Package csquotes Info: Redefining alias 'default' -> 'english'.
+ (./main.aux)
 \openout1 = `main.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 11.
@@ -794,17 +1064,17 @@ LaTeX Info: Redefining \degres on input line 11.
 
 (c:/texlive/2026/texmf-dist/tex/context/base/mkii/supp-pdf.mkii
 [Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count362
-\scratchdimen=\dimen325
+\scratchcounter=\count499
+\scratchdimen=\dimen327
 \scratchbox=\box91
-\nofMPsegments=\count363
-\nofMParguments=\count364
-\everyMPshowfont=\toks51
-\MPscratchCnt=\count365
-\MPscratchDim=\dimen326
-\MPnumerator=\count366
-\makeMPintoPDFobject=\count367
-\everyMPtoPDFconversion=\toks52
+\nofMPsegments=\count500
+\nofMParguments=\count501
+\everyMPshowfont=\toks55
+\MPscratchCnt=\count502
+\MPscratchDim=\dimen328
+\MPnumerator=\count503
+\makeMPintoPDFobject=\count504
+\everyMPtoPDFconversion=\toks56
 ) (c:/texlive/2026/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-base.sty
 Package: epstopdf-base 2020-01-24 v2.11 Base part for package epstopdf
 Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 485.
@@ -815,59 +1085,94 @@ Package pgfplots notification 'compat/show suggested version=true': document has
 
 Package hyperref Info: Link coloring OFF on input line 11.
 (./main.out) (./main.out)
-\@outlinefile=\write4
-\openout4 = `main.out'.
+\@outlinefile=\write5
+\openout5 = `main.out'.
 
+Package biblatex Info: Trying to load language 'english'...
+Package biblatex Info: ... file 'english.lbx' found.
+ (c:/texlive/2026/texmf-dist/tex/latex/biblatex/lbx/english.lbx
+File: english.lbx 2025/07/10 v3.21 biblatex localization (PK/MW)
+)
+Package biblatex Info: Trying to load language 'french'...
+Package biblatex Info: ... file 'french.lbx' found.
+ (c:/texlive/2026/texmf-dist/tex/latex/biblatex/lbx/french.lbx
+File: french.lbx 2025/07/10 v3.21 biblatex localization (PK/MW)
+)
+Package biblatex Info: Input encoding 'utf8' detected.
+Package biblatex Info: Automatic encoding selection.
+(biblatex)             Assuming data encoding 'utf8'.
+\openout4 = `main.bcf'.
+
+Package biblatex Info: Trying to load bibliographic data...
+Package biblatex Info: ... file 'main.bbl' found.
+ (./main.bbl)
+Package biblatex Info: Reference section=0 on input line 11.
+Package biblatex Info: Reference segment=0 on input line 11.
  (./Abstract.tex) [1
 
-{c:/texlive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{c:/texlive/2026/texmf-dist/fonts/enc/dvips/base/8r.enc}]
-LaTeX Font Info:    Trying to load font information for OT1+ztmcm on input line 23.
+{c:/texlive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{c:/texlive/2026/texmf-dist/fonts/enc/dvips/base/8r.enc}] (./section2.tex
+LaTeX Font Info:    Trying to load font information for OT1+ztmcm on input line 3.
  (c:/texlive/2026/texmf-dist/tex/latex/psnfss/ot1ztmcm.fd
 File: ot1ztmcm.fd 2000/01/03 Fontinst v1.801 font definitions for OT1/ztmcm.
 )
-LaTeX Font Info:    Trying to load font information for OML+ztmcm on input line 23.
+LaTeX Font Info:    Trying to load font information for OML+ztmcm on input line 3.
  (c:/texlive/2026/texmf-dist/tex/latex/psnfss/omlztmcm.fd
 File: omlztmcm.fd 2000/01/03 Fontinst v1.801 font definitions for OML/ztmcm.
 )
-LaTeX Font Info:    Trying to load font information for OMS+ztmcm on input line 23.
+LaTeX Font Info:    Trying to load font information for OMS+ztmcm on input line 3.
  (c:/texlive/2026/texmf-dist/tex/latex/psnfss/omsztmcm.fd
 File: omsztmcm.fd 2000/01/03 Fontinst v1.801 font definitions for OMS/ztmcm.
 )
-LaTeX Font Info:    Trying to load font information for OMX+ztmcm on input line 23.
+LaTeX Font Info:    Trying to load font information for OMX+ztmcm on input line 3.
  (c:/texlive/2026/texmf-dist/tex/latex/psnfss/omxztmcm.fd
 File: omxztmcm.fd 2000/01/03 Fontinst v1.801 font definitions for OMX/ztmcm.
 )
-LaTeX Font Info:    Trying to load font information for OT1+ptm on input line 23.
+LaTeX Font Info:    Trying to load font information for OT1+ptm on input line 3.
  (c:/texlive/2026/texmf-dist/tex/latex/psnfss/ot1ptm.fd
 File: ot1ptm.fd 2001/06/04 font definitions for OT1/ptm.
 )
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <10.95> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 23.
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 3.
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <8> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 23.
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 3.
 LaTeX Font Info:    Font shape `OT1/ptm/bx/n' in size <6> not available
-(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 23.
- (./section3.tex [1] [2]) [3] (./main.aux)
+(Font)              Font shape `OT1/ptm/b/n' tried instead on input line 3.
+) [1] (./section3.tex [2]
+LaTeX Info: Symbol \textrightarrow not provided by
+            font family ptm in TS1 encoding.
+            Default family used instead on input line 76.
+LaTeX Info: Symbol \textrightarrow not provided by
+            font family ptm in TS1 encoding.
+            Default family used instead on input line 77.
+ [3{c:/texlive/2026/texmf-dist/fonts/enc/dvips/cm-super/cm-super-ts1.enc}]) [4]
+pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has been already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.31 \end{document}
+                    [1] (./main.aux)
  ***********
 LaTeX2e <2025-11-01>
 L3 programming layer <2026-05-15>
  ***********
 Package rerunfilecheck Info: File `main.out' has not changed.
-(rerunfilecheck)             Checksum: 0FB723EFC767BCA0E752AE4C980DB237;224.
+(rerunfilecheck)             Checksum: 6D069D31EEA8E105D96D57CF75D8DB3E;310.
+Package logreq Info: Writing requests to 'main.run.xml'.
+\openout1 = `main.run.xml'.
+
  ) 
 Here is how much of TeX's memory you used:
- 39084 strings out of 467340
- 913459 string characters out of 5419566
- 1529584 words of memory out of 5000000
- 67493 multiletter control sequences out of 15000+600000
- 663729 words of font info for 100 fonts, out of 8000000 for 9000
+ 47553 strings out of 467340
+ 1082727 string characters out of 5419566
+ 2150408 words of memory out of 5000000
+ 75872 multiletter control sequences out of 15000+600000
+ 664539 words of font info for 101 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 89i,12n,107p,794b,609s stack positions out of 10000i,1000n,20000p,200000b,200000s
-<c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/rsfs/rsfs10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/symbol/usyr.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/symbol/usyr.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
-Output written on main.pdf (4 pages, 104776 bytes).
+ 89i,12n,107p,794b,1781s stack positions out of 10000i,1000n,20000p,200000b,200000s
+<c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmex10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/symbols/msbm10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/rsfs/rsfs10.pfb><c:/texlive/2026/texmf-dist/fonts/type1/public/cm-super/sfrm1095.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/symbol/usyr.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/symbol/usyr.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmb8a.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmr8a.pfb><c:/texlive/2026/texmf-dist/fonts/type1/urw/times/utmri8a.pfb>
+Output written on main.pdf (6 pages, 121316 bytes).
 PDF statistics:
- 136 PDF objects out of 1000 (max. 8388607)
- 93 compressed objects within 1 object stream
- 20 named destinations out of 1000 (max. 500000)
+ 163 PDF objects out of 1000 (max. 8388607)
+ 113 compressed objects within 2 object streams
+ 25 named destinations out of 1000 (max. 500000)
  125 words of extra memory for PDF output out of 10000 (max. 10000000)
 
