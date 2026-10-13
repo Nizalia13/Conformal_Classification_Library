@@ -1,5 +1,5 @@
-,Defender,Midfielder,Attacker,total
-classifier training,2346,2735,1367,6448
-validation,1173,1367,684,3224
-conformal fitting,1760,2052,1025,4837
-final test,587,684,342,1613
+,Defender,Midfielder,Attacker,Goalkeeper,total
+classifier training,2346,2735,1367,810,7258
+validation,1173,1368,684,405,3630
+conformal fitting,1760,2051,1025,608,5444
+final test,587,684,342,202,1815

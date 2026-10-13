@@ -1,5 +1,5 @@
 {
-  "executed_at_utc": "2026-09-24T14:21:45.366719+00:00",
+  "executed_at_utc": "2026-10-13T23:11:47.828279+00:00",
   "seed": 25,
   "alpha": 0.1,
   "shape_fraction": 0.5,
@@ -35,6 +35,9 @@
       "RF",
       "LW",
       "RW"
+    ],
+    "Goalkeeper": [
+      "GK"
     ]
   },
   "features": [
@@ -66,7 +69,12 @@
     "Composure",
     "Marking",
     "StandingTackle",
-    "SlidingTackle"
+    "SlidingTackle",
+    "GKDiving",
+    "GKHandling",
+    "GKKicking",
+    "GKPositioning",
+    "GKReflexes"
   ],
   "method_parameters": {
     "collapsed": {},
@@ -81,37 +89,38 @@
       "min_samples": 10
     }
   },
-  "retained_players": 16122,
+  "retained_players": 18147,
   "partition_sizes": {
-    "classifier training": 6448,
-    "validation": 3224,
-    "conformal fitting": 4837,
-    "final test": 1613
+    "classifier training": 7258,
+    "validation": 3630,
+    "conformal fitting": 5444,
+    "final test": 1815
   },
   "source_sha256": "c56b54025a85cb1f8c85b9745abf4c5b41f1f430c1a52a50b2fa872cb14b6128",
   "classifier_parameters": {
     "logreg": "Pipeline(steps=[('standardscaler', StandardScaler()),\n                ('logisticregression',\n                 LogisticRegression(max_iter=2000, random_state=25))])",
     "forest": "RandomForestClassifier(min_samples_leaf=3, n_estimators=250, n_jobs=1,\n                       random_state=25)",
-    "boost": "HistGradientBoostingClassifier(l2_regularization=1.0, learning_rate=0.08,\n                               max_iter=200, max_leaf_nodes=15,\n                               random_state=25)"
+    "boost": "HistGradientBoostingClassifier(l2_regularization=1.0, learning_rate=0.08,\n                               max_iter=200, max_leaf_nodes=15,\n                               random_state=25)",
+    "svc": "CalibratedClassifierCV(cv=5, ensemble=False,\n                       estimator=Pipeline(steps=[('standardscaler',\n                                                  StandardScaler()),\n                                                 ('svc',\n                                                  SVC(C=3.0,\n                                                      random_state=25))]))"
   },
   "versions": {
-    "python": "3.11.2",
-    "numpy": "2.4.6",
-    "pandas": "3.0.6",
-    "sklearn": "1.9.1",
-    "matplotlib": "3.11.2"
+    "python": "3.12.3",
+    "numpy": "1.26.4",
+    "pandas": "2.2.2",
+    "sklearn": "1.5.1",
+    "matplotlib": "3.9.2"
   },
   "library_sha256": {
-    "conformal_envelopes/__init__.py": "0930e9cd764d61985a3931071a67814ac96dcc67ce4c7122921e12b479aa6ebf",
-    "conformal_envelopes/calibration.py": "61745d7d238edbaf0f368d6ed62e965961509f7cacb3ccd3998c257e7aa6050d",
-    "conformal_envelopes/envelopes/__init__.py": "35eaf0587e267ac8f6e72819cb5847d7dc7f8fcbd0c4dd8eb521d747fae7c0bd",
-    "conformal_envelopes/envelopes/collapsed.py": "65ef38688c29e25b15ed5523fac9821fa9336e0489b671cbd6792691f8b34a14",
-    "conformal_envelopes/envelopes/radial.py": "2ad20b3ec2963eafb7ed5669baa5b0eb804ee527e3db2b1c65deff07b55343d9",
-    "conformal_envelopes/envelopes/strip.py": "beb4b2b521b93c8478e8de9e03b0f32b247a34f63968fa714ac72ddd1e6f7833",
-    "conformal_envelopes/io.py": "b7a55e01cf4a9af3a8be99f8740f3cc8a3aa4f3720bc71d871b34712631a6a4d",
-    "conformal_envelopes/metrics.py": "e5c10d668d9b433b6dddf897cf63e08e9c67b3c2fff6a9dc9766fd9bb59cd662",
-    "conformal_envelopes/missingness.py": "f32e8afd0ad16b04d5379f2d291e02ff01b4b2d35b7f3f6bb059db2bdbfcb756",
-    "conformal_envelopes/model.py": "f5f7bd5f902b8c9674e05ab1e4f3f01262d8ebeaa7b847680dc816b7cd8f509f",
-    "conformal_envelopes/plotting.py": "a73ed6201b46973e2ad3931921444df4fa51280a2c599ea6a9783f56463931a5"
+    "conformal_envelopes\\__init__.py": "0930e9cd764d61985a3931071a67814ac96dcc67ce4c7122921e12b479aa6ebf",
+    "conformal_envelopes\\calibration.py": "61745d7d238edbaf0f368d6ed62e965961509f7cacb3ccd3998c257e7aa6050d",
+    "conformal_envelopes\\envelopes\\__init__.py": "35eaf0587e267ac8f6e72819cb5847d7dc7f8fcbd0c4dd8eb521d747fae7c0bd",
+    "conformal_envelopes\\envelopes\\collapsed.py": "65ef38688c29e25b15ed5523fac9821fa9336e0489b671cbd6792691f8b34a14",
+    "conformal_envelopes\\envelopes\\radial.py": "b8bf8e44b00a28af7eddc6a2d2e510b49e8280560e22c09f7c3a9b06284fe24e",
+    "conformal_envelopes\\envelopes\\strip.py": "beb4b2b521b93c8478e8de9e03b0f32b247a34f63968fa714ac72ddd1e6f7833",
+    "conformal_envelopes\\io.py": "b7a55e01cf4a9af3a8be99f8740f3cc8a3aa4f3720bc71d871b34712631a6a4d",
+    "conformal_envelopes\\metrics.py": "e5c10d668d9b433b6dddf897cf63e08e9c67b3c2fff6a9dc9766fd9bb59cd662",
+    "conformal_envelopes\\missingness.py": "f32e8afd0ad16b04d5379f2d291e02ff01b4b2d35b7f3f6bb059db2bdbfcb756",
+    "conformal_envelopes\\model.py": "a2007bc6b52537b3f7acdb883320a86f169c69a3f56de73e989268229fe47375",
+    "conformal_envelopes\\plotting.py": "a73ed6201b46973e2ad3931921444df4fa51280a2c599ea6a9783f56463931a5"
   }
 }
