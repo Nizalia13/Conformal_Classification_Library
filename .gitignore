@@ -11,7 +11,7 @@ pyproject.toml
 
 # /examples/
 
-football_all_positions_example.ipynb
+#football_all_positions_example.ipynb
 
 .venv
 
