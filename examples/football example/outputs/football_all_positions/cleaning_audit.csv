@@ -1,0 +1,5 @@
+stage,rows
+Original rows,18207
+Missing position excluded,60
+Positions with < 100 players excluded,312
+Players retained,17835
