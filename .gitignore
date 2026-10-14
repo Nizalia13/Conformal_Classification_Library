@@ -6,8 +6,8 @@ __pycache__/
 conformal_envelopes.egg-info/
 *.egg-info
 
-# Project configuration 
-pyproject.toml
+# # Project configuration 
+# pyproject.toml
 
 # /examples/
 
