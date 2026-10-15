@@ -1,0 +1,65 @@
+\section{Experiments}\label{sec:experiments}
+
+We evaluated the three envelope construction methods on simulated data with missing scores and on two football 
+classification tasks. We keep $\alpha=0.1$ throughout, the sample of each class is split equally into the shape discovery 
+set $S_1$ and the size scaling set $S_2$, finally coverage is the proportion of test samples whose prediction set contains 
+the true label. We report coverage, the average set size, the singleton rate and the empty-set rate, as mean $\pm$ 
+standard error over repeated runs. The radial method uses $M=100$, $\kappa=4$ and $\delta=30^\circ$, and the strip 
+method uses $NB=8$ with $n_0=3$ on the simulated data and $n_0=10$ on the football data; all other parameters are the 
+library defaults. The code and the saved outputs are in the repository.
+
+\paragraph{Simulated data.} There are two classes, $A$ and $B$, and four predictors are used to score each candidate 
+class. For a sample with true class $h^\ast$ and a candidate class $h$, let $\sigma=+1$ if $h=h^\ast$ and $\sigma=-1$ 
+otherwise. The first predictor has the score $1/(1+e^{-(1.8\,\sigma+\varepsilon_1)})$ with $\varepsilon_1\sim N(0,1)$. 
+The second is built in the same way from a noise term $\varepsilon_2$ with correlation $0.9$ to $\varepsilon_1$. The 
+third is weak, with shift $0.35\,\sigma$ and noise of standard deviation $1.5$, and the fourth is uniform on $[0,1]$ and 
+carries no information. Each score is then independently hidden with probability $0.15$, and if all four scores of a 
+candidate are hidden the draw is repeated. In each runs there are $1500$ training draws and $500$ test samples, and we use 
+$500$ independent runs.
+
+\paragraph{Football data.} We classify FIFA~19 players from $34$ skill ratings \cite{fifa19data}. In the first task 
+the label is simpler, it is just the role (defender, midfielder, attacker or goalkeeper) for $18{,}147$ players, and in the 
+second it is the recorded position, in this we only use the $17{,}835$ players in the $20$ positions with at least $100$ 
+player records. Four classifiers (logistic regression, random forest, gradient boosting and a support vector classifier) 
+are trained on a separate $40\%$ of the players, and the scores are their predicted probabilities of each label. Another
+$20\%$ is used for validation, and the remaining players are used for conformal fitting ($30\%$) and testing ($10\%$). 
+To measure the variability of the coverage, we keep the trained classifiers fixed and evaluate them over $100$ random split 
+of the remaining data into remaining data into calibration and test sets (sized $5{,}444$ / $1{,}815$ for roles and 
+$5{,}351$ / $1{,}784$ for positions). The data contain no missing scores.
+
+ 
+\begin{table}[ht]
+\centering
+\small
+\label{tab:results}
+\begin{tabular}{llcccc}
+\toprule
+Data & Method & Coverage & Set size & Singleton & Empty \\
+\midrule
+Simulated & Collapsed & $0.9012\pm0.0008$ & $1.014$ & $0.811$ & $0.088$ \\
+($500$ runs) & Radial & $0.9001\pm0.0008$ & $1.086$ & $0.752$ & $0.081$ \\
+ & Strip & $0.8998\pm0.0008$ & $0.955$ & $0.856$ & $0.095$ \\
+\midrule
+Football roles & Collapsed & $0.9002\pm0.0009$ & $1.069$ & $0.887$ & $0.022$ \\
+($100$ runs) & Radial & $0.8995\pm0.0010$ & $1.068$ & $0.886$ & $0.023$ \\
+ & Strip & $0.8994\pm0.0010$ & $1.082$ & $0.856$ & $0.031$ \\
+\midrule
+Football positions & Collapsed & $0.9032\pm0.0009$ & $4.364$ & $0.108$ & $0.010$ \\
+($100$ runs) & Radial & $0.9016\pm0.0009$ & $4.738$ & $0.101$ & $0.010$ \\
+ & Strip & $0.9016\pm0.0009$ & $4.575$ & $0.118$ & $0.011$ \\
+\bottomrule
+\end{tabular}
+\caption{Results as mean $\pm$ standard error over repeated runs, with target coverage $0.9$.}
+\end{table}
+
+\paragraph{Results.} Table~\ref{tab:results} shows that the coverage of all three constructions is close to the target 
+$0.9$ in every experiment. The coverage of each class is also close to the target; it is between $0.899$ and $0.902$ on 
+the simulated data, and between $0.896$ and $0.902$ for the four roles. For the positions, the average coverage of a 
+position lies between $0.888$ and $0.926$; each position has few test players in a run, therefore these averages are 
+noisier than the overall results.
+
+The methods have similar set sizes on the football role tasks, where most of the sets are singletons. But on the position 
+classificationtask the sets contain between $4.4$ and $4.7$ positions on average, which is expected, because neighbouring 
+positions, such as the left, central and right variants of a role, have very similar skill values. The order of the methods 
+by set size changes between the experiments, therefore we can not claim that one construction is better in general. Since 
+the football data are complete, the handling of missing scores is only evaluated on the simulated data.

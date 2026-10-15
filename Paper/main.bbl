@@ -55,6 +55,37 @@
       \field{title}{Algorithmic Learning in a Random World}
       \field{year}{2005}
     \endentry
+    \entry{fifa19data}{misc}{}{}
+      \name{author}{1}{}{%
+        {{hash=f5d59d4f870a5886c50d1ebe25638272}{%
+           family={{Kaggle user karangadiya}},
+           familyi={K\bibinitperiod}}}%
+      }
+      \strng{namehash}{f5d59d4f870a5886c50d1ebe25638272}
+      \strng{fullhash}{f5d59d4f870a5886c50d1ebe25638272}
+      \strng{fullhashraw}{f5d59d4f870a5886c50d1ebe25638272}
+      \strng{bibnamehash}{f5d59d4f870a5886c50d1ebe25638272}
+      \strng{authorbibnamehash}{f5d59d4f870a5886c50d1ebe25638272}
+      \strng{authornamehash}{f5d59d4f870a5886c50d1ebe25638272}
+      \strng{authorfullhash}{f5d59d4f870a5886c50d1ebe25638272}
+      \strng{authorfullhashraw}{f5d59d4f870a5886c50d1ebe25638272}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{Kaggle dataset}
+      \field{title}{{FIFA 19} complete player dataset}
+      \field{urlday}{16}
+      \field{urlmonth}{10}
+      \field{urlyear}{2026}
+      \field{urldateera}{ce}
+      \verb{urlraw}
+      \verb https://www.kaggle.com/datasets/karangadiya/fifa19
+      \endverb
+      \verb{url}
+      \verb https://www.kaggle.com/datasets/karangadiya/fifa19
+      \endverb
+    \endentry
   \enddatalist
 \endrefsection
 \endinput
