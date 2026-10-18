@@ -55,6 +55,34 @@
       \field{title}{Algorithmic Learning in a Random World}
       \field{year}{2005}
     \endentry
+    \entry{conformalenvelopes}{misc}{}{}
+      \name{author}{1}{}{%
+        {{hash=e8acc63b1e238f3255c900eed37254b8}{%
+           family={lib},
+           familyi={l\bibinitperiod}}}%
+      }
+      \strng{namehash}{e8acc63b1e238f3255c900eed37254b8}
+      \strng{fullhash}{e8acc63b1e238f3255c900eed37254b8}
+      \strng{fullhashraw}{e8acc63b1e238f3255c900eed37254b8}
+      \strng{bibnamehash}{e8acc63b1e238f3255c900eed37254b8}
+      \strng{authorbibnamehash}{e8acc63b1e238f3255c900eed37254b8}
+      \strng{authornamehash}{e8acc63b1e238f3255c900eed37254b8}
+      \strng{authorfullhash}{e8acc63b1e238f3255c900eed37254b8}
+      \strng{authorfullhashraw}{e8acc63b1e238f3255c900eed37254b8}
+      \field{sortinit}{2}
+      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{Python package, version 0.2.0}
+      \field{title}{Conformal Envelopes: class-specific conformal prediction sets with missing-score handling}
+      \field{year}{2026}
+      \verb{urlraw}
+      \verb https://github.com/Nizalia13/Conformal_Classification_Library
+      \endverb
+      \verb{url}
+      \verb https://github.com/Nizalia13/Conformal_Classification_Library
+      \endverb
+    \endentry
     \entry{fifa19data}{misc}{}{}
       \name{author}{1}{}{%
         {{hash=f5d59d4f870a5886c50d1ebe25638272}{%
@@ -69,8 +97,8 @@
       \strng{authornamehash}{f5d59d4f870a5886c50d1ebe25638272}
       \strng{authorfullhash}{f5d59d4f870a5886c50d1ebe25638272}
       \strng{authorfullhashraw}{f5d59d4f870a5886c50d1ebe25638272}
-      \field{sortinit}{2}
-      \field{sortinithash}{8b555b3791beccb63322c22f3320aa9a}
+      \field{sortinit}{3}
+      \field{sortinithash}{ad6fe7482ffbd7b9f99c9e8b5dccd3d7}
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{howpublished}{Kaggle dataset}

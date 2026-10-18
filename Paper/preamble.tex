@@ -68,3 +68,13 @@
 \setcounter{secnumdepth}{2}
 
 \pagestyle{plain}
+
+% Allow this preamble file to be compiled directly for a quick build check.
+\makeatletter
+\edef\preamble@jobname{\jobname}
+\def\preamble@standalone{preamble}
+\ifx\preamble@jobname\preamble@standalone
+	\begin{document}
+	\end{document}
+\fi
+\makeatother
