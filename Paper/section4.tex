@@ -1,0 +1,84 @@
+\section{Software}\label{sec:software}
+
+The constructions of Section~\ref{sec3:constructions} are implemented in the Python package 
+\texttt{conformal\_envelopes}~\cite{conformalenvelopes}. It depends only on NumPy, pandas and Matplotlib, and it is 
+installed from the repository with \texttt{pip install -e .}. The package does not train any classifier. It takes the 
+scores of predictors that were trained on separate data beforehand (as required in Section~\ref{sec:setup}).
+
+% \paragraph{Input.} 
+The data are a table (a pandas data frame or a CSV file) with one row per sample, an identifier column, 
+a label column (needed only for fitting) and one column for each score. By default the scores lie in $[0,1]$; a higher 
+score means better agreement with the class, and a missing score is NaN. The library converts the scores to the 
+nonconformity scores $v=1-s$ of Section~\ref{sec:setup}. All classes use the same score columns by default. If the 
+predictors give a separate score for each candidate class, as in the example below, a dictionary \texttt{label\_to\_columns} 
+lists the columns of each class.
+
+% \paragraph{Usage.} 
+We illustrate the usage with a shor Iris example of the repository. Two classifiers, trained on a separate part of the data, give one score for each species, and the radial envelope is fitted on a conformal sample.
+
+We illustrate the usage on the Iris data, using two classifiers trained on a separate part of the data, which give one 
+score for each species, and the radial envelope is fitted on a conformal sample. The notebook in the repository contains 
+the same steps, with additional checks and plots.
+
+
+{\footnotesize
+\begin{verbatim}
+import pandas as pd
+from sklearn.datasets import load_iris
+from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
+from conformal_envelopes import ConformalSetModel, evaluate_prediction_sets
+
+iris = load_iris(as_frame=True)
+X, y = iris.data, iris.target_names[iris.target]
+X_rest, X_test, y_rest, y_test = train_test_split(
+    X, y, test_size=30, stratify=y, random_state=0)
+X_train, X_cal, y_train, y_cal = train_test_split(
+    X_rest, y_rest, test_size=60, stratify=y_rest, random_state=1)
+
+# Two classifiers give one score per candidate species.
+clfs = {"logreg": LogisticRegression(max_iter=2000),
+        "knn": KNeighborsClassifier()}
+for clf in clfs.values():
+    clf.fit(X_train, y_train)
+
+def score_table(features):
+    table = pd.DataFrame({"ID": features.index.astype(str)})
+    for name, clf in clfs.items():
+        for k, species in enumerate(clf.classes_):
+            table[f"{species}_{name}"] = clf.predict_proba(features)[:, k]
+    return table
+
+cal = score_table(X_cal)
+cal["label"] = y_cal
+test = score_table(X_test)
+cols = {s: [f"{s}_logreg", f"{s}_knn"] for s in iris.target_names}
+
+model = ConformalSetModel(method="radial", alpha=0.10, random_state=0)
+model.fit(cal, id_col="ID", label_col="label",
+          score_cols=[c for v in cols.values() for c in v],
+          label_to_columns=cols)
+pred = model.predict(test)
+print(evaluate_prediction_sets(pred["prediction_set"], list(y_test)))
+\end{verbatim}
+}
+
+
+The model is created with the method (\texttt{"collapsed"}, \texttt{"radial"} or \texttt{"strip"}), the level $\alpha$ and 
+the optional parameters of the method from Section~\ref{sec3:constructions}. \texttt{fit} splits the sample of each class 
+into $S_1$ and $S_2$ (a fraction \texttt{shape\_fraction}, $0.5$ by default, goes to $S_1$), builds the envelope and 
+computes $\hat t$. \texttt{predict} returns one row for each sample, with the prediction set, its size, the value of $\tau$ 
+for each label and an indicator \texttt{forced}. The optional rule that replaces an empty set by the label with the smallest 
+$\tau$ is on by default (\texttt{force\_nonempty}), and it is switched off in Section~\ref{sec:experiments}. 
+\texttt{evaluate\_prediction\_sets} computes the coverage, the average set size, the singleton rate, the empty set rate and 
+the coverage of each class. Finally, a fitted model can be saved and loaded.
+
+\paragraph{Visualisation.} \texttt{plot} fits a separate two dimensional envelope for two selected predictors and shows it 
+with the test samples, as in Figure~\ref{fig:envelopes}. \texttt{plot\_slice} shows a cross section of the fitted envelope, 
+with the other coordinates fixed at chosen values. Finally, for each true class \texttt{plot\_inclusion\_heatmap} shows 
+how often every label appears in the prediction sets, and its diagonal gives the coverage of each class.
+
+\paragraph{Examples and tests.} The repository contains notebooks for the Iris tutorial above, the simulated experiment 
+and the two football experiments of Section~\ref{sec:experiments}. Since $30$ test flowers are too few to judge the 
+coverage, the Iris example only illustrates the use of the library. 
